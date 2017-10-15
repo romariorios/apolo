@@ -1,1 +1,4 @@
+- process handling (I/O, exit codes, env, args)
+- globbing
 - cmdline args parsing
+- check if root/admin
