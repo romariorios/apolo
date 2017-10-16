@@ -19,7 +19,7 @@
    DEALINGS IN THE SOFTWARE.
 */
 
-#include "../apolocore.h"
+#include "apolocore.h"
 
 #include <unistd.h>
 
