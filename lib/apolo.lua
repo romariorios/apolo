@@ -103,17 +103,41 @@ function apolo.parseopts(options)
             local match = matches[1]
             results[match] = true
 
-            local next_arg = arg[arg_index + 1]
-            if not next_arg then
-                break
-            end
+            -- Get option parameters
+            local opt = named[match]
+            local opttype = opt.type
 
-            -- Check if this option has a value next to it in the cmdline
-            if not (string.sub(next_arg, 1, 1) == "-" or
-                    string.sub(next_arg, 1, 2) == "--") then
+            -- Type should be either switch or param
+            assert(opttype,  "Missing type for \"" .. match .. "\" option")
+            assert(
+                opttype == "switch" or opttype == "param",
+                "Type for \"" .. match ..
+                "\" should be either \"param\" or \"switch\" (got \"" ..
+                opttype .. "\")")
 
-                results[match] = next_arg
-                skip_next = true
+            -- If option is param, get parameter value
+            if opttype == "param" then
+                local error_str =
+                    "Missing value for \"--" .. match .. "\" (" .. a .. ")"
+                local next_arg = arg[arg_index + 1]
+
+                -- If there's no next arg, return, since there must be a value
+                -- for this option
+                if not next_arg then
+                    return nil, error_str
+                end
+
+                -- Check if this option has a value next to it in the cmdline
+                if not (string.sub(next_arg, 1, 1) == "-" or
+                        string.sub(next_arg, 1, 2) == "--") then
+
+                    results[match] = next_arg
+                    skip_next = true
+
+                -- If there's no value next to this option, return
+                else
+                    return nil, error_str
+                end
             end
         end
     end

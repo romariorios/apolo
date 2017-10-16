@@ -2,7 +2,11 @@ apolo_global = true
 require 'apolo'
 
 local result, error = parseopts{
-    named = {verbose = '', version = ''}
+    named = {
+        verbose = {type = "switch"},
+        version = {type = "switch"},
+        somevalue = {type = "param"}
+    }
 }
 
 if not result then
