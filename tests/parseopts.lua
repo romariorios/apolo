@@ -6,7 +6,9 @@ local result, error = parseopts{
         verbose = {type = "switch"},
         version = {type = "switch"},
         somevalue = {type = "param"}
-    }
+    },
+    positional = {"thing1", "thing2"},
+    multi_positional = "many-things"
 }
 
 if not result then

@@ -39,8 +39,9 @@ setmetatable(_G, {
 
 function apolo.parseopts(options)
     local named = options.named
-    local positional = options.pos
-    local multi_positional = options.multipos
+    local positional = options.positional
+    local multi_positional = options.multi_positional
+    local pos_index = 1
     local results = {}
 
     -- TODO Deal with short options
@@ -138,6 +139,23 @@ function apolo.parseopts(options)
                 else
                     return nil, error_str
                 end
+            end
+
+        -- Otherwise, it's just a positional parameter
+        else
+            -- First, check unary positinal parameters
+            if pos_index <= #positional then
+                results[positional[pos_index]] = a
+                pos_index = pos_index + 1
+
+            -- If there are no remaining unary positional params, check if
+            -- there's a multi positional param
+            else
+                if not results[multi_positional] then
+                    results[multi_positional] = {}
+                end
+
+                table.insert(results[multi_positional], a)
             end
         end
     end
