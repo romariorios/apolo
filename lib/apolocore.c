@@ -58,7 +58,7 @@ static int run(lua_State *L)
         const char *executable = lua_tostring(L, 1);
         const char *exeargs[32];
         const char *envstrings[128];  /* Make room for parent environment */
-        int exit_code;
+        int success;
 
         /* Store executable args in an array */
         exeargs[0] = executable;
@@ -67,9 +67,9 @@ static int run(lua_State *L)
         /* Store env vars in an array */
         table_to_strarray(L, 3, envstrings);
 
-        exit_code = native_run(executable, exeargs, envstrings);
+        success = native_run(executable, exeargs, envstrings);
 
-        lua_pushnumber(L, exit_code);
+        lua_pushboolean(L, success);
 
         return 1;
     }

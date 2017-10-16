@@ -38,5 +38,13 @@ int native_run(
         *env = *parent_env;
     *env = NULL;
 
-    return execvpe(executable, exeargs, envstrings);
+    /* Fork the process to avoid the script being replaced by execvp */
+    pid_t res = fork();
+    if (res < 0)  /* Failed to fork, return false */
+        return 0;
+
+    if (res != 0)  /* We're the parent, return */
+        return 1;
+
+    return execvpe(executable, exeargs, envstrings); /* never returns */
 }
