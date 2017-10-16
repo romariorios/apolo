@@ -29,11 +29,13 @@ int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
     char **env = envstrings;
+    char **parent_env = environ;
+
     for (; *env; ++env);  /* go to end of array */
 
     /* Copy parent env to child env array */
-    for (; *environ; ++environ, ++env)
-        *env = *environ;
+    for (; *parent_env; ++parent_env, ++env)
+        *env = *parent_env;
     *env = NULL;
 
     return execvpe(executable, exeargs, envstrings);
