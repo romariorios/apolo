@@ -79,8 +79,20 @@ function apolo.parseopts(options)
 
             -- If there's more than one match, then the option is ambiguous
             if #matches > 1 then
-                -- TODO list possible matches
-                return nil, "Option \"" .. a .. "\" is ambiguous"
+                local error_str =
+                    "Option \"" .. a .. "\" is ambiguous (possible options: "
+
+                -- List all possible matches for the prefix
+                for i, m in ipairs(matches) do
+                    error_str = error_str .. "--" .. m
+                    if i ~= #matches then
+                        error_str = error_str .. ", "
+                    else
+                        error_str = error_str .. ")"
+                    end
+                end
+
+                return nil, error_str
 
             -- If there are no matches, then the option was not found
             elseif #matches == 0 then
