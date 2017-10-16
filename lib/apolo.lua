@@ -151,6 +151,10 @@ function apolo.parseopts(options)
             -- If there are no remaining unary positional params, check if
             -- there's a multi positional param
             else
+                if not multi_positional then
+                    return nil, "Unexpected argument \"" .. a .. "\""
+                end
+
                 if not results[multi_positional] then
                     results[multi_positional] = {}
                 end
