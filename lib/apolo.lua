@@ -54,8 +54,6 @@ function apolo.parseopts(options)
             break
         elseif string.sub(a, 1, 2) == "--" then
             local trimmed = string.sub(a, 3, #a)
-            local ambiguous = true
-            local found = false
             local matches = nil
 
             -- For each prefix of an argument, check if it is unambiguous
@@ -72,30 +70,26 @@ function apolo.parseopts(options)
                     end
                 end
 
-                -- If there's exatcly one match, we found our option
-                if #matches == 1 then
-                    found = true
-                end
-
-                -- If there are less than two matches, the prefix is unambiguous
-                -- (If there's one, it's an unambiguous match; if there are none,
-                -- it certainly does not exist)
-                if #matches < 2 then
-                    ambiguous = false
+                -- If there are no matches for a given prefix, there's no need
+                -- to keep looking
+                if #matches == 0 then
                     break
                 end
             end
 
-            -- If ambiguous or not found, return nil
-            if ambiguous then
+            -- If there's more than one match, then the option is ambiguous
+            if #matches > 1 then
                 -- TODO list possible matches
                 return nil, "Option \"" .. a .. "\" is ambiguous"
-            elseif not found then
+
+            -- If there are no matches, then the option was not found
+            elseif #matches == 0 then
                 return nil, "Option \"" .. a .. "\" was not found"
             end
 
             -- Otherwise, there's only one match
-            results[matches[1]] = true
+            local match = matches[1]
+            results[match] = true
 
             local next_arg = arg[arg_index + 1]
             if not next_arg then
@@ -106,7 +100,7 @@ function apolo.parseopts(options)
             if not (string.sub(next_arg, 1, 1) == "-" or
                     string.sub(next_arg, 1, 2) == "--") then
 
-                results[matches[1]] = next_arg
+                results[match] = next_arg
                 skip_next = true
             end
         end
