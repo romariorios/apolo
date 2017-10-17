@@ -21,6 +21,8 @@
 
 #include "apolocore.h"
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 extern char **environ;
@@ -28,7 +30,7 @@ extern char **environ;
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
-    char **env = envstrings;
+    const char **env = envstrings;
     char **parent_env = environ;
 
     for (; *env; ++env);  /* go to end of array */
@@ -43,8 +45,11 @@ int native_run(
     if (res < 0)  /* Failed to fork, return false */
         return 0;
 
-    if (res != 0)  /* We're the parent, return */
+    if (res != 0) {  /* We're the parent, return */
+        int exit_code;
+        waitpid(res, &exit_code, 0);
         return 1;
+    }
 
     return execvpe(executable, exeargs, envstrings); /* never returns */
 }
