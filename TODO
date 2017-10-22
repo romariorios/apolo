@@ -1,4 +1,5 @@
 - process handling (I/O, exit codes, env, args)
+- cat, file download
 - globbing
 - cmdline args parsing
 - message boxes

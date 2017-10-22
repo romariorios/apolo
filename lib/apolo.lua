@@ -167,6 +167,43 @@ function apolo.parseopts(options)
     return results
 end
 
+apolo.read = {}
+
+-- TODO support non-local protocols
+apolo.read.protocol_handlers = {}
+
+local apolo_read_mt = {}
+
+function apolo_read_mt.__call(apolo_read, filename)
+    -- Look for a colon in the matches and get the text before it
+    local protocol, matches = string.gsub(filename, ":.*", "")
+
+    -- If there's a match, then it's not a local file
+    if matches >= 1 then
+        -- Look for the right handler for the protocol
+        for p, handler in pairs(apolo_read.protocol_handlers) do
+            if protocol == p then
+                return handler(filename)
+            end
+        end
+
+        return nil, "Unsupported protocol: " .. protocol
+    end
+
+    -- Otherwise, just open it as a normal local file
+    local file, file_err = io.open(filename, "r")
+    if not file then
+        return nil, "Could not open file: " .. file_err
+    end
+
+    local file_str = file:read("*all")
+    file:close()
+
+    return file_str
+end
+
+setmetatable(apolo.read, apolo_read_mt)
+
 function apolo.run(args)
     local executable = args[1]
     local exeargs = {}
