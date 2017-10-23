@@ -37,6 +37,46 @@ setmetatable(_G, {
         return os.getenv(key)
     end})
 
+function apolo.inspect(value)
+    local vtype = type(value)
+    local res = ""
+
+    if vtype == "table" then
+        -- TODO treat recursive tables
+
+        res = res .. "{"
+
+        local cur_key = 1
+        local continuous_array = true
+
+        for k, v in pairs(value) do
+            -- Check if key is a number and if the indexes are "continuous"
+            if type(k) == "number" and continuous_array and k ~= cur_key then
+                continuous_array = false
+            else
+                cur_key = cur_key + 1
+            end
+
+            -- Only show key if it's not a number
+            if type(k) == "string" then
+                res = res .. k .. " = "
+            elseif type(k) ~= "number" or not continuous_array then
+                res = res .. "[" .. apolo.inspect(k) .. "] = "
+            end
+
+            res = res .. apolo.inspect(v) .. ", "
+        end
+
+        res = string.sub(res, 1, #res - 2) .. "}"
+    elseif vtype == "string" then
+        res = "\"" .. value .. "\""
+    else
+        res = tostring(value)
+    end
+
+    return res
+end
+
 function apolo.parseopts(options)
     local named = options.named
     local positional = options.positional
