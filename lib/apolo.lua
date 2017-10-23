@@ -184,7 +184,7 @@ function apolo.parseopts(options)
         -- Otherwise, it's just a positional parameter
         else
             -- First, check unary positinal parameters
-            if pos_index <= #positional then
+            if positional and pos_index <= #positional then
                 results[positional[pos_index]] = a
                 pos_index = pos_index + 1
 
