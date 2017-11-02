@@ -55,6 +55,26 @@ static int apolocore_curdir(lua_State *L)
     return 1;
 }
 
+static int apolocore_listdirentries(lua_State *L)
+{
+    struct listdirentries_result res;
+    int i;
+    check_args(L, 1);
+
+    res = native_listdirentries(lua_tostring(L, 1));
+
+    // Push entries into a new lua table
+    lua_createtable(L, res.length, 0);
+    for (i = 0; i < res.length; ++i) {
+        lua_pushnumber(L, i);
+        lua_pushstring(L, res.entries[i]);
+        lua_settable(L, -3);
+    }
+
+    // Return table pushed to the stack at lua_createtable
+    return 1;
+}
+
 static void table_to_strarray(lua_State *L, int index, const char **strarray)
 {
     int i = 0;
@@ -101,6 +121,7 @@ static int apolocore_run(lua_State *L)
 static const struct luaL_Reg apolocore[] = {
     {"chdir", apolocore_chdir},
     {"curdir", apolocore_curdir},
+    {"listdirentries", apolocore_listdirentries},
     {"run", apolocore_run},
     {NULL, NULL}
 };

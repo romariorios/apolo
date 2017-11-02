@@ -22,8 +22,18 @@
 #ifndef APOLOCORE_H
 #define APOLOCORE_H
 
+struct listdirentries_result {
+    int ok;  // boolean
+    int length;
+    char **entries;
+};
+
 int native_chdir(const char *dir);
 void native_curdir(char *dir);
+
+struct listdirentries_result
+native_listdirentries(const char *dir);
+
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings);
 

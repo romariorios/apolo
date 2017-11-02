@@ -21,6 +21,7 @@
 
 #include "apolocore.h"
 
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -36,6 +37,22 @@ int native_chdir(const char *dir)
 void native_curdir(char *dir)
 {
     getcwd(dir, 512);
+}
+
+struct listdirentries_result
+native_listdirentries(const char *dir)
+{
+    struct listdirentries_result res = {0, 0, NULL};
+    DIR *d = opendir(dir);
+
+    if (d == NULL) {
+        lua_pushboolean(L, 0);
+        return res;
+    }
+
+
+
+    return res;
 }
 
 int native_run(
