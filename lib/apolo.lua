@@ -37,6 +37,29 @@ setmetatable(_G, {
         return os.getenv(key)
     end})
 
+apolo.dir = {}
+
+local apolo_dir_mt = {}
+function apolo_dir_mt.__call(apolo_dir, dir, fun)
+    -- Get old dir
+    local old_dir = apolo.core.curdir()
+
+    -- Enter dir
+    assert(apolo.core.chdir(dir), "Could not enter directory \"" .. dir .. "\"")
+
+    -- If no function was specified, then remain in the given dir
+    if not fun then
+        return true
+    end
+
+    fun()
+    apolo.core.chdir(old_dir)
+
+    return true
+end
+
+setmetatable(apolo.dir, apolo_dir_mt)
+
 function apolo.inspect(value)
     local vtype = type(value)
     local res = ""

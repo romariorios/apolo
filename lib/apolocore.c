@@ -30,6 +30,31 @@
 /* Apolo includes */
 #include "apolocore.h"
 
+#define check_args(L, argc) \
+{\
+    int n = lua_gettop((L));\
+    if (n != (argc))\
+        return luaL_error((L), "Wrong number of arguments (expected %d, got %d)", (argc), n);\
+}
+
+static int apolocore_chdir(lua_State *L)
+{
+    check_args(L, 1);
+
+    lua_pushboolean(L, native_chdir(lua_tostring(L, 1)));
+    return 1;
+}
+
+static int apolocore_curdir(lua_State *L)
+{
+    char dir[512];
+    check_args(L, 0);
+
+    native_curdir(dir);
+    lua_pushstring(L, dir);
+    return 1;
+}
+
 static void table_to_strarray(lua_State *L, int index, const char **strarray)
 {
     int i = 0;
@@ -48,11 +73,9 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 }
 
 /* apolo.core.run(executable, exeargs, envstrings) */
-static int run(lua_State *L)
+static int apolocore_run(lua_State *L)
 {
-    int n = lua_gettop(L);
-    if (n != 3)
-        return luaL_error(L, "Wrong number of arguments (expected 3, got %d)", n);
+    check_args(L, 3);
 
     {
         const char *executable = lua_tostring(L, 1);
@@ -76,7 +99,9 @@ static int run(lua_State *L)
 }
 
 static const struct luaL_Reg apolocore[] = {
-    {"run", run},
+    {"chdir", apolocore_chdir},
+    {"curdir", apolocore_curdir},
+    {"run", apolocore_run},
     {NULL, NULL}
 };
 

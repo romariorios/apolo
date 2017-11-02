@@ -27,6 +27,17 @@
 
 extern char **environ;
 
+int native_chdir(const char *dir)
+{
+    // chdir failed if return is -1
+    return chdir(dir) != -1;
+}
+
+void native_curdir(char *dir)
+{
+    getcwd(dir, 512);
+}
+
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {

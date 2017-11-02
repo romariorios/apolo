@@ -22,6 +22,8 @@
 #ifndef APOLOCORE_H
 #define APOLOCORE_H
 
+int native_chdir(const char *dir);
+void native_curdir(char *dir);
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings);
 
