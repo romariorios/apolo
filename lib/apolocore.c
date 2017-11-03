@@ -30,16 +30,24 @@
 /* Apolo includes */
 #include "apolocore.h"
 
-#define check_args(L, argc) \
+#define check_argc(argc) \
 {\
-    int n = lua_gettop((L));\
+    int n = lua_gettop(L);\
     if (n != (argc))\
-        return luaL_error((L), "Wrong number of arguments (expected %d, got %d)", (argc), n);\
+        return luaL_error(L, "Wrong number of arguments (expected %d, got %d)", (argc), n);\
+}
+
+#define check_arg_type(ind, type) \
+{\
+    int t = lua_type(L, (ind));\
+    if (t != (type))\
+        return luaL_error(L, "Wrong type for argument %d", (ind));\
 }
 
 static int apolocore_chdir(lua_State *L)
 {
-    check_args(L, 1);
+    check_argc(1);
+    check_arg_type(1, LUA_TSTRING);
 
     lua_pushboolean(L, native_chdir(lua_tostring(L, 1)));
     return 1;
@@ -48,7 +56,7 @@ static int apolocore_chdir(lua_State *L)
 static int apolocore_curdir(lua_State *L)
 {
     char dir[512];
-    check_args(L, 0);
+    check_argc(0);
 
     native_curdir(dir);
     lua_pushstring(L, dir);
@@ -75,7 +83,8 @@ void insert_direntry(lua_State *L, int index, const char *dirname, const char *t
 
 static int apolocore_listdirentries(lua_State *L)
 {
-    check_args(L, 1);
+    check_argc(1);
+    check_arg_type(1, LUA_TSTRING);
 
     // Push entries into a new lua table
     lua_newtable(L);
@@ -105,7 +114,10 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 /* apolo.core.run(executable, exeargs, envstrings) */
 static int apolocore_run(lua_State *L)
 {
-    check_args(L, 3);
+    check_argc(3);
+    check_arg_type(1, LUA_TSTRING);
+    check_arg_type(2, LUA_TTABLE);
+    check_arg_type(3, LUA_TTABLE);
 
     {
         const char *executable = lua_tostring(L, 1);

@@ -39,7 +39,29 @@ setmetatable(_G, {
 
 apolo.dir = {}
 
+function apolo.del(entry)
+    -- If the entry can't be removed, then it's probably a directory
+    if not os.remove(entry) then
+        -- Enter dir and remove everything in it
+        apolo.dir(entry, function()
+            for _, e in ipairs(apolo.dir.entries()) do
+                if e.type == "dir" then
+                    assert(apolo.del(e.name))
+                else
+                    assert(os.remove(e.name))
+                end
+            end
+        end)
+
+        -- Then, finally, try removing the empty directory again
+        assert(os.remove(entry))
+    end
+
+    return true
+end
+
 function apolo.dir.entries(dir)
+    local dir = dir and dir or '.'
     local raw = apolo.core.listdirentries(dir)
     local res = {}
 
