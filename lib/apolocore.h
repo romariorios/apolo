@@ -22,18 +22,13 @@
 #ifndef APOLOCORE_H
 #define APOLOCORE_H
 
-struct listdirentries_result {
-    int ok;  // boolean
-    int length;
-    char **entries;
-};
+#include <lua.h>
+
+void insert_direntry(lua_State *L, int index, const char *dirname, const char *type);
 
 int native_chdir(const char *dir);
 void native_curdir(char *dir);
-
-struct listdirentries_result
-native_listdirentries(const char *dir);
-
+int native_fillentryarray(lua_State *L, const char *dir);
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings);
 

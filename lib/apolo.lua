@@ -39,7 +39,22 @@ setmetatable(_G, {
 
 apolo.dir = {}
 
+function apolo.dir.entries(dir)
+    local raw = apolo.core.listdirentries(dir)
+    local res = {}
+
+    -- Exclude . and .. from listing
+    for _, e in ipairs(raw) do
+        if e.name ~= '.' and e.name ~= '..' then
+            table.insert(res, e)
+        end
+    end
+
+    return res
+end
+
 local apolo_dir_mt = {}
+
 function apolo_dir_mt.__call(apolo_dir, dir, fun)
     -- Get old dir
     local old_dir = apolo.core.curdir()

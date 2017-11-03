@@ -55,21 +55,31 @@ static int apolocore_curdir(lua_State *L)
     return 1;
 }
 
+// To be called inside of native_fillentryarray
+void insert_direntry(lua_State *L, int index, const char *dirname, const char *type)
+{
+    lua_pushnumber(L, index);
+
+    lua_createtable(L, 0, 2);
+
+    lua_pushstring(L, "name");
+    lua_pushstring(L, dirname);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "type");
+    lua_pushstring(L, type);
+    lua_settable(L, -3);
+
+    lua_settable(L, -3);
+}
+
 static int apolocore_listdirentries(lua_State *L)
 {
-    struct listdirentries_result res;
-    int i;
     check_args(L, 1);
 
-    res = native_listdirentries(lua_tostring(L, 1));
-
     // Push entries into a new lua table
-    lua_createtable(L, res.length, 0);
-    for (i = 0; i < res.length; ++i) {
-        lua_pushnumber(L, i);
-        lua_pushstring(L, res.entries[i]);
-        lua_settable(L, -3);
-    }
+    lua_newtable(L);
+    native_fillentryarray(L, lua_tostring(L, 1));
 
     // Return table pushed to the stack at lua_createtable
     return 1;

@@ -22,9 +22,14 @@
 #include "apolocore.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 extern char **environ;
 
@@ -39,20 +44,53 @@ void native_curdir(char *dir)
     getcwd(dir, 512);
 }
 
-struct listdirentries_result
-native_listdirentries(const char *dir)
+int native_fillentryarray(lua_State *L, const char *dirname)
 {
-    struct listdirentries_result res = {0, 0, NULL};
-    DIR *d = opendir(dir);
+    DIR *dir;
+    struct dirent *entry;
+    int i;
+    const char *type;
 
-    if (d == NULL) {
-        lua_pushboolean(L, 0);
-        return res;
+    errno = 0;
+
+    if ((dir = opendir(dirname)) == NULL)
+        return 0;
+
+    for (i = 1; (entry = readdir(dir)) != NULL; ++i) {
+        switch (entry->d_type) {
+        // stantdard, multi-platform types
+        case DT_DIR:
+            type = "dir";
+            break;
+        case DT_REG:
+            type = "file";
+            break;
+
+        // exterded types for linux
+        case DT_BLK:
+            type = "blkdev";
+            break;
+        case DT_CHR:
+            type = "chrdev";
+            break;
+        case DT_FIFO:
+            type = "namedpipe";
+            break;
+        case DT_LNK:
+            type = "symlink";
+            break;
+        case DT_SOCK:
+            type = "udsocket";
+            break;
+        default:
+            type = "unknown";
+            break;
+        }
+
+        insert_direntry(L, i, entry->d_name, type);
     }
 
-
-
-    return res;
+    return 1;
 }
 
 int native_run(
