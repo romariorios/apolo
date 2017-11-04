@@ -170,6 +170,99 @@ function apolo.inspect(value)
     return apolo_inspect(value, {})
 end
 
+local function apolo_matches_glob_pattern(pattern, str)
+    local pat = {}
+
+    -- Parse the pattern before using it
+    local i = 1
+    local patlen = #pattern
+    while i <= patlen do
+        local ch = string.sub(pattern, i, i)
+
+        if ch == '*' then
+            table.insert(pat, '*')
+            i = i + 1
+        elseif ch == '?' then
+            table.insert(pat, '?')
+            i = i + 1
+        elseif ch == '[' then
+            local j = i + 1
+            local subch = string.sub(pattern, j, j)
+            local charopts = {'opts'}
+
+            while subch ~= ']' do
+                table.insert(charopts, subch)
+                j = j + 1
+                subch = string.sub(pattern, j, j)
+            end
+
+            table.insert(pat, charopts)
+            i = j + 1
+        else
+            table.insert(pat, ch)
+            i = i + 1
+        end
+    end
+
+    -- Now use the parsed pat to see if str matches
+    local pati = 1  -- Pattern index
+    for i = 1, #str do
+        local ch = string.sub(str, i, i)
+        local curpatchar = pat[pati]
+
+        -- If there's no more pattern left, but there are still characters,
+        -- the globbing fails
+        if not curpatchar then
+            return false
+        end
+
+        if curpatchar == '*' then
+            -- Keep consuming str's chars
+        elseif curpatchar == '?' then
+            -- Consume one char then go to the next patchar
+            pati = pati + 1
+        elseif type(curpatchar) == 'string' then
+            -- Stop comparing and return false
+            if ch ~= curpatchar then
+                return false
+            end
+
+            pati = pati + 1
+        else
+            curpatchar[0] = nil  -- Remove opts
+
+            -- Check if the current char corresponds to any of the options
+            matches = false
+            for _, opt in pairs(curpatchar) do
+                if ch == opt then
+                    matches = true
+                    break
+                end
+            end
+
+            if not matches then
+                return false
+            end
+
+            pati = pati + 1
+        end
+    end
+
+    return true
+end
+
+function apolo.glob(pattern)
+    local res = {}
+
+    for _, e in ipairs(apolo.dir.entries()) do
+        if apolo_matches_glob_pattern(pattern, e) then
+            table.insert(res, e)
+        end
+    end
+
+    return res
+end
+
 function apolo.parseopts(options)
     local named = options.named
     local positional = options.positional
