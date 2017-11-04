@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -90,6 +91,20 @@ int native_fillentryarray(lua_State *L, const char *dirname)
         insert_direntry(L, i, entry->d_name, type);
     }
 
+    return 1;
+}
+
+int native_mkdir(const char *dir)
+{
+    struct stat st = {0};
+
+    // If directory already exists, return false
+    if (stat(dir, &st) != -1)
+        return 0;
+
+    // rwx permissions to owner
+    // rx to everyone else
+    mkdir(dir, 0755);
     return 1;
 }
 

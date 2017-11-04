@@ -75,6 +75,12 @@ function apolo.dir.entries(dir)
     return res
 end
 
+function apolo.dir.mk(dir, fun)
+    apolo.core.mkdir(dir)
+
+    return apolo.dir(dir, fun)
+end
+
 local apolo_dir_mt = {}
 
 function apolo_dir_mt.__call(apolo_dir, dir, fun)
