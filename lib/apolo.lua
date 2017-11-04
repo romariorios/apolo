@@ -103,13 +103,11 @@ end
 
 setmetatable(apolo.dir, apolo_dir_mt)
 
-function apolo.inspect(value)
+local function apolo_inspect(value, visited)
     local vtype = type(value)
     local res = ""
 
     if vtype == "table" then
-        -- TODO treat recursive tables
-
         res = res .. "{"
 
         local cur_key = 1
@@ -130,7 +128,17 @@ function apolo.inspect(value)
                 res = res .. "[" .. apolo.inspect(k) .. "] = "
             end
 
-            res = res .. apolo.inspect(v) .. ", "
+            local was_visited = false
+            for _, e in ipairs(visited) do
+                if e == v then
+                    was_visited = true
+                end
+            end
+
+            table.insert(visited, value)
+            local to_string = was_visited and '...' or apolo_inspect(v, visited)
+
+            res = res .. to_string .. ", "
         end
 
         res = string.sub(res, 1, #res - 2) .. "}"
@@ -141,6 +149,10 @@ function apolo.inspect(value)
     end
 
     return res
+end
+
+function apolo.inspect(value)
+    return apolo_inspect(value, {})
 end
 
 function apolo.parseopts(options)
