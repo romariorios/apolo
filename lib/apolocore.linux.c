@@ -91,6 +91,7 @@ int native_fillentryarray(lua_State *L, const char *dirname)
         insert_direntry(L, i, entry->d_name, type);
     }
 
+    closedir(dir);
     return 1;
 }
 

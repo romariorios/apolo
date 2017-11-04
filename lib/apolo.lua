@@ -44,11 +44,11 @@ function apolo.del(entry)
     if not os.remove(entry) then
         -- Enter dir and remove everything in it
         apolo.dir(entry, function()
-            for _, e in ipairs(apolo.dir.entries()) do
+            for name, e in ipairs(apolo.dir.entryinfos()) do
                 if e.type == "dir" then
-                    assert(apolo.del(e.name))
+                    assert(apolo.del(name))
                 else
-                    assert(os.remove(e.name))
+                    assert(os.remove(name))
                 end
             end
         end)
@@ -61,6 +61,18 @@ function apolo.del(entry)
 end
 
 function apolo.dir.entries(dir)
+    local infos = apolo.dir.entryinfos(dir)
+    local res = {}
+
+    -- Get only names
+    for name, _ in pairs(infos) do
+        table.insert(res, name)
+    end
+
+    return res
+end
+
+function apolo.dir.entryinfos(dir)
     local dir = dir and dir or '.'
     local raw = apolo.core.listdirentries(dir)
     local res = {}
@@ -68,7 +80,10 @@ function apolo.dir.entries(dir)
     -- Exclude . and .. from listing
     for _, e in ipairs(raw) do
         if e.name ~= '.' and e.name ~= '..' then
-            table.insert(res, e)
+            local name = e.name
+
+            e.name = nil
+            res[name] = e
         end
     end
 
