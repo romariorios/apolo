@@ -273,21 +273,21 @@ function apolo.parseopts(options)
     return results
 end
 
-apolo.read = {}
+apolo.readf = {}
 
 -- TODO support non-local protocols
-apolo.read.protocol_handlers = {}
+apolo.readf.protocol_handlers = {}
 
-local apolo_read_mt = {}
+local apolo_readf_mt = {}
 
-function apolo_read_mt.__call(apolo_read, filename)
+function apolo_readf_mt.__call(apolo_readf, filename)
     -- Look for a colon in the matches and get the text before it
     local protocol, matches = string.gsub(filename, ":.*", "")
 
     -- If there's a match, then it's not a local file
     if matches >= 1 then
         -- Look for the right handler for the protocol
-        for p, handler in pairs(apolo_read.protocol_handlers) do
+        for p, handler in pairs(apolo_readf.protocol_handlers) do
             if protocol == p then
                 return handler(filename)
             end
@@ -308,7 +308,7 @@ function apolo_read_mt.__call(apolo_read, filename)
     return file_str
 end
 
-setmetatable(apolo.read, apolo_read_mt)
+setmetatable(apolo.readf, apolo_readf_mt)
 
 function apolo.run(args)
     local executable = args[1]
@@ -336,6 +336,35 @@ function apolo.run(args)
 
     return apolo.core.run(executable, exeargs, envstrings)
 end
+
+apolo.writef = {}
+
+local function apolo_writef(filename, content, mode)
+    local file, file_err = io.open(filename, mode)
+    if not file then
+        return nil, "Could not open file: " .. file_err
+    end
+
+    local _, write_err = file:write(content)
+    if write_err then
+        return nil, "Could not write to file: " .. write_err
+    end
+
+    assert(file:close())
+    return true
+end
+
+function apolo.writef.app(filename, content)
+    return apolo_writef(filename, content, "a")
+end
+
+local apolo_writef_mt = {}
+
+function apolo_writef_mt.__call(_, filename, content)
+    return apolo_writef(filename, content, "w")
+end
+
+setmetatable(apolo.writef, apolo_writef_mt)
 
 if not apolo_global then
     return apolo
