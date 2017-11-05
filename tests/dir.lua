@@ -1,10 +1,10 @@
 local apolo = require 'apolo'
 
-apolo.run{'dir'}
+print(apolo.inspect(apolo.dir.entries()))
 apolo.dir('..', function()
-    apolo.run{'dir'}
+    print(apolo.inspect(apolo.dir.entries()))
 end)
-apolo.run{'dir'}
+print(apolo.inspect(apolo.dir.entries()))
 
 -- Test del
 apolo.dir.mk('tests', function()
