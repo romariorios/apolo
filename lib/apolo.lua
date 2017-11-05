@@ -217,10 +217,17 @@ local function apolo_matches_glob_pattern(pattern, str)
         end
 
         if curpatchar == '*' then
-            -- Keep consuming str's chars
+            -- Keep consuming str's chars until ch is equal to next patchar
+            if ch == pat[pati + 1] then
+                pati = pati + 2
+            end
         elseif curpatchar == '?' then
             -- Consume one char then go to the next patchar
-            pati = pati + 1
+            if ch == pat[pati + 1] then
+                pati = pati + 2
+            else
+                pati = pati + 1
+            end
         elseif type(curpatchar) == 'string' then
             -- Stop comparing and return false
             if ch ~= curpatchar then
@@ -248,7 +255,8 @@ local function apolo_matches_glob_pattern(pattern, str)
         end
     end
 
-    return true
+    -- If the pattern was not completely cosumed, then there wasn't a match
+    return pati >= #pat
 end
 
 function apolo.glob(pattern)
