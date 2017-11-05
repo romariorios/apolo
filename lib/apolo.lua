@@ -44,7 +44,7 @@ function apolo.del(entry)
     if not os.remove(entry) then
         -- Enter dir and remove everything in it
         apolo.dir(entry, function()
-            for name, e in ipairs(apolo.dir.entryinfos()) do
+            for name, e in pairs(apolo.dir.entryinfos()) do
                 if e.type == "dir" then
                     assert(apolo.del(name))
                 else
