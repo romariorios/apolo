@@ -106,6 +106,15 @@ static int apolocore_mkdir(lua_State *L)
     return 1;
 }
 
+static int apolocore_rmdir(lua_State *L)
+{
+    check_argc(1);
+    check_arg_type(1, LUA_TSTRING);
+
+    lua_pushboolean(L, native_rmdir(lua_tostring(L, 1)));
+    return 1;
+}
+
 static void table_to_strarray(lua_State *L, int index, const char **strarray)
 {
     int i = 0;
@@ -157,6 +166,7 @@ static const struct luaL_Reg apolocore[] = {
     {"curdir", apolocore_curdir},
     {"listdirentries", apolocore_listdirentries},
     {"mkdir", apolocore_mkdir},
+    {"rmdir", apolocore_rmdir},
     {"run", apolocore_run},
     {NULL, NULL}
 };

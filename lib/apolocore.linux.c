@@ -111,6 +111,12 @@ int native_mkdir(const char *dir)
     return 1;
 }
 
+int native_rmdir(const char *dir)
+{
+    // noop, since Linux uses Lua's os.remove instead
+    return 0;
+}
+
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {

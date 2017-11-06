@@ -30,6 +30,7 @@ int native_chdir(const char *dir);
 void native_curdir(char *dir);
 int native_fillentryarray(lua_State *L, const char *dir);
 int native_mkdir(const char *dir);
+int native_rmdir(const char *dir);
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings);
 

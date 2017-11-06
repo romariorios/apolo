@@ -27,6 +27,17 @@ end
 
 apolo.core = require 'apolocore'
 
+-- Only windows needs a native call to RemoveDirectory
+if apolo.core.osname ~= 'win' then
+    apolo.core.rmdir = os.remove
+end
+
+if apolo.core.osname == 'linux' then
+    function apolo.core.copy(orig, dest)
+        apolo.run{'cp', '-r', orig, dest}
+    end
+end
+
 setmetatable(_G, {
     __index = function(table, key)
         local v = rawget(table, key)
@@ -40,8 +51,7 @@ setmetatable(_G, {
 apolo.dir = {}
 
 function apolo.del(entry)
-    -- If the entry can't be removed, then it's probably a directory
-    if not os.remove(entry) then
+    if apolo.dir.entryinfos()[entry].type == 'dir' then
         -- Enter dir and remove everything in it
         apolo.dir(entry, function()
             for name, e in pairs(apolo.dir.entryinfos()) do
@@ -53,7 +63,9 @@ function apolo.del(entry)
             end
         end)
 
-        -- Then, finally, try removing the empty directory again
+        -- Then, finally, try removing the empty directory
+        assert(apolo.core.rmdir(entry))
+    else
         assert(os.remove(entry))
     end
 

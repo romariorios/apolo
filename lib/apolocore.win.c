@@ -78,6 +78,11 @@ int native_mkdir(const char *dir)
     return CreateDirectory(dir, &sec) != 0;
 }
 
+int native_rmdir(const char *dir)
+{
+    return RemoveDirectory(dir);
+}
+
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
