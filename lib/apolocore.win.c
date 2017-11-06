@@ -80,6 +80,10 @@ int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
     char cmdline[1024];
+    char env[4096];
+    char *env_ptr = env;
+    char *parent_env = GetEnvironmentStrings();
+    char *parent_env_ptr = parent_env;
     STARTUPINFO suinfo;
     PROCESS_INFORMATION pinfo;
 
@@ -95,13 +99,29 @@ int native_run(
         strcat(cmdline, "\" ");
     }
 
+    // Copy envstrings to env
+    for (; *envstrings; ++envstrings, ++env_ptr) {
+        for (const char *cur = *envstrings; *cur; ++cur, ++env_ptr)
+            *env_ptr = *cur;
+        *env_ptr = '\0';
+    }
+
+    // Copy parent_env to env until current and next characters are both zero
+    for (; !(parent_env_ptr[0] == '\0' && parent_env_ptr[1] == '\0'); ++parent_env_ptr, ++env_ptr)
+        *env_ptr = *parent_env_ptr;
+    *env_ptr = '\0';
+    ++env_ptr;
+    *env_ptr = '\0';
+
+    FreeEnvironmentStrings(parent_env);
+
     memset(&suinfo, 0, sizeof(suinfo));
     suinfo.cb = sizeof(suinfo);
 
     memset(&pinfo, 0, sizeof(pinfo));
 
     CreateProcess(
-        NULL, cmdline, NULL, NULL, FALSE, 0, NULL,
+        NULL, cmdline, NULL, NULL, FALSE, 0, env,
         NULL, &suinfo, &pinfo);
 
     return WaitForSingleObject(pinfo.hProcess, INFINITE) == WAIT_OBJECT_0;
