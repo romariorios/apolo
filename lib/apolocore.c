@@ -30,6 +30,8 @@
 /* Apolo includes */
 #include "apolocore.h"
 
+extern const char *apolocore_os;
+
 #define check_argc(argc) \
 {\
     int n = lua_gettop(L);\
@@ -162,6 +164,12 @@ static const struct luaL_Reg apolocore[] = {
 int luaopen_apolocore(lua_State *L)
 {
     lua_newtable(L);
+
     luaL_setfuncs(L, apolocore, 0);
+
+    lua_pushstring(L, "osname");
+    lua_pushstring(L, apolocore_os);
+    lua_settable(L, -3);
+
     return 1;
 }

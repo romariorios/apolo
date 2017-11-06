@@ -24,6 +24,8 @@
 #include <string.h>
 #include <windows.h>
 
+const char *apolocore_os = "win";
+
 int native_chdir(const char *dir)
 {
     return SetCurrentDirectory(dir) != 0;

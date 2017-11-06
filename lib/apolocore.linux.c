@@ -34,6 +34,8 @@
 
 extern char **environ;
 
+const char *apolocore_os = "linux";
+
 int native_chdir(const char *dir)
 {
     // chdir failed if return is -1
