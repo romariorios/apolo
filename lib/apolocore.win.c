@@ -79,6 +79,30 @@ int native_mkdir(const char *dir)
 int native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
-    // TODO
-    return 0;
+    char cmdline[1024];
+    STARTUPINFO suinfo;
+    PROCESS_INFORMATION pinfo;
+
+    strcpy(cmdline, "\"");
+    strcat(cmdline, executable);
+    strcat(cmdline, ".exe");
+    strcat(cmdline, "\" ");
+
+    ++exeargs;
+    for (; *exeargs != NULL; ++exeargs) {
+        strcat(cmdline, "\"");
+        strcat(cmdline, *exeargs);
+        strcat(cmdline, "\" ");
+    }
+
+    memset(&suinfo, 0, sizeof(suinfo));
+    suinfo.cb = sizeof(suinfo);
+
+    memset(&pinfo, 0, sizeof(pinfo));
+
+    CreateProcess(
+        NULL, cmdline, NULL, NULL, FALSE, 0, NULL,
+        NULL, &suinfo, &pinfo);
+
+    return WaitForSingleObject(pinfo.hProcess, INFINITE) == WAIT_OBJECT_0;
 }
