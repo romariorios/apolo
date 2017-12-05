@@ -144,7 +144,7 @@ static int apolocore_run(lua_State *L)
         const char *executable = lua_tostring(L, 1);
         const char *exeargs[32];
         const char *envstrings[128];  /* Make room for parent environment */
-        int success;
+        struct native_run_result res;
 
         /* Store executable args in an array */
         exeargs[0] = executable;
@@ -153,11 +153,31 @@ static int apolocore_run(lua_State *L)
         /* Store env vars in an array */
         table_to_strarray(L, 3, envstrings);
 
-        success = native_run(executable, exeargs, envstrings);
+        res = native_run(executable, exeargs, envstrings);
 
-        lua_pushboolean(L, success);
+        switch (res.tag) {
+        case NATIVE_RUN_FORKFAILED:
+            lua_pushnil(L);
+            lua_pushstring(L, "Failed to fork");
 
-        return 1;
+            return 2;
+        case NATIVE_RUN_NOTFOUND:
+            lua_pushnil(L);
+            lua_pushstring(L, "Command not found");
+
+            return 2;
+        case NATIVE_RUN_SUCCESS:
+            lua_pushboolean(L, res.exit_code == 0);
+            lua_pushnumber(L, res.exit_code);
+
+            return 2;
+        }
+
+        // otherwise
+        lua_pushnil(L);
+        lua_pushstring(L, "Unknown error");
+
+        return 2;
     }
 }
 

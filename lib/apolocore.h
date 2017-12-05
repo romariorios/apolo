@@ -31,7 +31,21 @@ void native_curdir(char *dir);
 int native_fillentryarray(lua_State *L, const char *dir);
 int native_mkdir(const char *dir);
 int native_rmdir(const char *dir);
-int native_run(
+
+struct native_run_result
+{
+    enum {
+        NATIVE_RUN_INVALID = 0x0,
+
+        NATIVE_RUN_FORKFAILED,
+        NATIVE_RUN_NOTFOUND,
+        NATIVE_RUN_SUCCESS
+    } tag;
+
+    int exit_code;
+};
+
+struct native_run_result native_run(
     const char *executable, const char **exeargs, const char **envstrings);
 
 #endif

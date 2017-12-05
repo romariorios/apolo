@@ -117,7 +117,7 @@ int native_rmdir(const char *dir)
     return 0;
 }
 
-int native_run(
+struct native_run_result native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
     const char **env = envstrings;
@@ -131,15 +131,30 @@ int native_run(
     *env = NULL;
 
     /* Fork the process to avoid the script being replaced by execvp */
-    pid_t res = fork();
-    if (res < 0)  /* Failed to fork, return false */
-        return 0;
-
-    if (res != 0) {  /* We're the parent, return */
-        int exit_code;
-        waitpid(res, &exit_code, 0);
-        return 1;
+    pid_t fork_res = fork();
+    if (fork_res < 0) {
+        struct native_run_result res = {NATIVE_RUN_FORKFAILED, 0};
+        return res;
     }
 
-    return execvpe(executable, exeargs, envstrings); /* never returns */
+    if (fork_res != 0) {  /* We're the parent, return */
+        int exit_code;
+        waitpid(fork_res, &exit_code, 0);
+
+        struct native_run_result res = {NATIVE_RUN_SUCCESS, exit_code};
+        return res;
+    }
+
+    execvpe(executable, exeargs, envstrings);  /* should never return */
+
+    /* If execvpe ever returns, an error occurred: */
+    // TODO handle other errors
+    struct native_run_result res;
+    switch (errno) {
+    case ENOENT:
+        res.tag = NATIVE_RUN_NOTFOUND;
+        break;
+    }
+
+    return res;
 }
