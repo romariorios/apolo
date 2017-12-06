@@ -9,13 +9,13 @@ dir.mk('apoloruntests', function()
     end
 
     print('These files should be shown: ' .. inspect(dir.entries()))
-    run{'dir'}
+    run 'dir'
 end)
 
 del('apoloruntests')
 
 assert(
-    not run{'non-existent'},
+    not run 'non-existent',
     'Should return false on non-existent executable')
 
 local luacmd = arg[-1]
@@ -33,6 +33,12 @@ dir.mk('argstests', function()
     assert(run{luacmd, 'run-args.lua', 'one-arg'})
     assert(run{luacmd, 'run-args.lua', 'this-arg', 'another-arg', 'yet another arg'})
     assert(run{luacmd, 'run-args.lua', 'HELLO this is just one arg', 'another arg'})
+
+    assert(run(
+        luacmd ..
+        ' run-args.lua "HELLO this is just one arg" and these are other args'))
+
+    assert(run(luacmd .. " run-args.lua 'just one arg' and other args"))
 end)
 
 del('argstests')

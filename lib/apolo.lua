@@ -450,6 +450,40 @@ end
 
 setmetatable(apolo.readf, apolo_readf_mt)
 
+local function unstringfy_args(str)
+    local m = string.gmatch(str, '%S+')
+
+    local args = {}
+    local quoted = false
+    local quote_char = nil
+
+    for arg in m do
+        if not quoted then
+            quote_char = string.sub(arg, 1, 1)
+
+            if quote_char == "'" or quote_char == '"' then
+                quoted = true
+                arg = string.sub(arg, 2, #arg)
+            end
+
+            table.insert(args, arg)
+        else
+            local arglen = #arg
+            if string.sub(arg, arglen, arglen) == quote_char then
+                quoted = false
+                arg = string.sub(arg, 1, arglen - 1)
+            end
+
+            local argslen = #args
+            args[argslen] = args[argslen] .. ' ' .. arg
+        end
+    end
+
+    assert(quoted == false, 'Unclosed quote on command ' .. str)
+
+    return args
+end
+
 apolo.run = {}
 
 function apolo.run.env(env_table)
@@ -461,6 +495,14 @@ end
 local apolo_run_mt = {}
 
 function apolo_run_mt.__call(apolo_run, args)
+    if type(args) == 'string' then
+        args = unstringfy_args(args)
+    else
+        assert(
+            type(args) == 'table',
+            'Expecting either string or table as run argument')
+    end
+
     local executable = args[1]
     local exeargs = {}
 
