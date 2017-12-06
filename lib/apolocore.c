@@ -171,13 +171,12 @@ static int apolocore_run(lua_State *L)
             lua_pushnumber(L, res.exit_code);
 
             return 2;
+        default:
+            lua_pushnil(L);
+            lua_pushstring(L, "Unknown error");
+
+            return 2;
         }
-
-        // otherwise
-        lua_pushnil(L);
-        lua_pushstring(L, "Unknown error");
-
-        return 2;
     }
 }
 

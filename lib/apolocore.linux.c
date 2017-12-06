@@ -23,6 +23,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -130,6 +131,12 @@ struct native_run_result native_run(
         *env = *parent_env;
     *env = NULL;
 
+    /* Create pipe to communicate execvpe failure in the child */
+    int pipe_fd[2];
+    int execvpe_errno = 0;
+
+    pipe(pipe_fd);
+
     /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
     if (fork_res < 0) {
@@ -138,23 +145,38 @@ struct native_run_result native_run(
     }
 
     if (fork_res != 0) {  /* We're the parent, return */
+        close(pipe_fd[1]);
+        read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
+
+        struct native_run_result res;
+        switch (execvpe_errno) {
+        case 0:  // success
+            break;
+        case ENOENT:
+            res.tag = NATIVE_RUN_NOTFOUND;
+            return res;
+
+        // TODO treat other exec errors
+
+        default:
+            return res;
+        }
+
         int exit_code;
         waitpid(fork_res, &exit_code, 0);
 
-        struct native_run_result res = {NATIVE_RUN_SUCCESS, exit_code};
+        res.tag = NATIVE_RUN_SUCCESS;
+        res.exit_code = WEXITSTATUS(exit_code);
         return res;
     }
 
     execvpe(executable, exeargs, envstrings);  /* should never return */
 
     /* If execvpe ever returns, an error occurred: */
-    // TODO handle other errors
-    struct native_run_result res;
-    switch (errno) {
-    case ENOENT:
-        res.tag = NATIVE_RUN_NOTFOUND;
-        break;
-    }
+    close(pipe_fd[0]);
 
-    return res;
+    execvpe_errno = errno;
+    write(pipe_fd[1], &execvpe_errno, sizeof(execvpe_errno));
+
+    exit(0);
 }
