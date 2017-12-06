@@ -57,3 +57,32 @@ dir.mk('exitcodetests', function()
 end)
 
 del('exitcodetests')
+
+dir.mk('envtests', function()
+    writef(
+        'check-env.lua',
+        [[
+            if os.getenv('FOO') == 'hello' and os.getenv('BAR') == 'hey' then
+                os.exit(3)
+            end
+
+            if os.getenv('FOO') == 'foo' then
+                os.exit(1)
+            elseif os.getenv('BAR') == 'bar' then
+                os.exit(2)
+            end
+
+            os.exit(0)
+        ]])
+
+    local _, exit_code = run.env{FOO = 'foo'}{luacmd, 'check-env.lua'}
+    assert(exit_code == 1)
+
+    local _, exit_code = run.env{BAR = 'bar'}{luacmd, 'check-env.lua'}
+    assert(exit_code == 2)
+
+    local _, exit_code = run.env{FOO = 'hello', BAR = 'hey'}{luacmd, 'check-env.lua'}
+    assert(exit_code == 3)
+
+    assert(run{luacmd, 'check-env.lua'})
+end)

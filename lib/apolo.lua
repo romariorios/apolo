@@ -450,7 +450,17 @@ end
 
 setmetatable(apolo.readf, apolo_readf_mt)
 
-function apolo.run(args)
+apolo.run = {}
+
+function apolo.run.env(env_table)
+    apolo.run.__env = env_table
+
+    return apolo.run
+end
+
+local apolo_run_mt = {}
+
+function apolo_run_mt.__call(apolo_run, args)
     local executable = args[1]
     local exeargs = {}
 
@@ -459,7 +469,7 @@ function apolo.run(args)
     end
 
     local envstrings = {}
-    local exeenv = args.env
+    local exeenv = apolo_run.__env
     if exeenv then
         for name, val in pairs(exeenv) do
             -- Convert lua booleans to a more usual representation of booleans
@@ -472,10 +482,14 @@ function apolo.run(args)
 
             table.insert(envstrings, name .. "=" .. tostring(val))
         end
+
+        apolo_run.__env = nil
     end
 
     return apolo.core.run(executable, exeargs, envstrings)
 end
+
+setmetatable(apolo.run, apolo_run_mt)
 
 apolo.writef = {}
 
