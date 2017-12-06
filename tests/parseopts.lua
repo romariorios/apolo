@@ -1,4 +1,3 @@
-apolo_global = true
 require 'apolo'
 
 -- Test 1: normal switches

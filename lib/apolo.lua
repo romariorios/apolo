@@ -18,12 +18,7 @@
 -- FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 -- DEALINGS IN THE SOFTWARE.
 
-local apolo = nil
-if apolo_global then
-    apolo = _G
-else
-    apolo = {}
-end
+local apolo = _ENV
 
 apolo.core = require 'apolocore'
 
@@ -559,7 +554,3 @@ function apolo_writef_mt.__call(_, filename, content)
 end
 
 setmetatable(apolo.writef, apolo_writef_mt)
-
-if not apolo_global then
-    return apolo
-end

@@ -1,16 +1,16 @@
-local apolo = require 'apolo'
+require 'apolo'
 
-print(apolo.inspect(apolo.dir.entries()))
-apolo.dir('..', function()
-    print(apolo.inspect(apolo.dir.entries()))
+print(inspect(dir.entries()))
+dir('..', function()
+    print(inspect(apolo.dir.entries()))
 end)
-print(apolo.inspect(apolo.dir.entries()))
+print(inspect(dir.entries()))
 
 -- Test del
-apolo.dir.mk('tests', function()
+dir.mk('tests', function()
     for i = 1, 10 do
-        apolo.writef('file_' .. i, 'CONTENT')
+        writef('file_' .. i, 'CONTENT')
     end
 end)
 
-apolo.del('tests')
+del('tests')
