@@ -485,14 +485,14 @@ local function unstringfy_args(str)
 end
 
 apolo.run = {}
+local apolo_run_mt = {}
 
 function apolo.run.env(env_table)
-    apolo.run.__env = env_table
+    local new_run = {__env = env_table}
+    setmetatable(new_run, apolo_run_mt)
 
-    return apolo.run
+    return new_run
 end
-
-local apolo_run_mt = {}
 
 function apolo_run_mt.__call(apolo_run, args)
     if type(args) == 'string' then
@@ -524,8 +524,6 @@ function apolo_run_mt.__call(apolo_run, args)
 
             table.insert(envstrings, name .. "=" .. tostring(val))
         end
-
-        apolo_run.__env = nil
     end
 
     return apolo.core.run(executable, exeargs, envstrings)
