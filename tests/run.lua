@@ -14,7 +14,12 @@ end)
 
 del('apoloruntests')
 
+assert(
+    not run{'non-existent'},
+    'Should return false on non-existent executable')
+
 local testsdir = string.gsub(arg[0], '(.*)/(.*)', '%1')
+local luacmd = arg[-1]
 
 assert(dir(testsdir, function()
     writef(
@@ -23,27 +28,27 @@ assert(dir(testsdir, function()
             for i, v in ipairs(arg) do
                 io.write(i .. ' ' .. v .. ' ')
             end
-            io.write('\\n')
+            io.write('\n')
         ]])
 
-    assert(run{arg[0], 'run-args.lua', 'one-arg'})
-    assert(run{arg[0], 'run-args.lua', 'this-arg', 'another-arg', 'yet another arg'})
-    assert(run{arg[0], 'run-args.lua', 'HELLO this is just one arg', 'another arg'})
+    assert(run{luacmd, 'run-args.lua', 'one-arg'})
+    assert(run{luacmd, 'run-args.lua', 'this-arg', 'another-arg', 'yet another arg'})
+    assert(run{luacmd, 'run-args.lua', 'HELLO this is just one arg', 'another arg'})
 end))
 
 dir.mk('exitcodetests', function()
     writef(
         'exit-code.lua',
         [[
-            if arg[0] == 'success' then
+            if arg[1] == 'success' then
                 os.exit()
             end
 
             os.exit(10)
         ]])
 
-    assert(run{arg[0], 'exit-code.lua', 'success'})
-    assert(run{arg[0], 'exit-code.lua'} == false)
+    assert(run{luacmd, 'exit-code.lua', 'success'})
+    assert(run{luacmd, 'exit-code.lua'} == false)
 
     local ret, errstr = run{'luna', 'exit-code.lua', 'success'}
     assert(not ret)
