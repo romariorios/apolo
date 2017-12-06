@@ -18,10 +18,9 @@ assert(
     not run{'non-existent'},
     'Should return false on non-existent executable')
 
-local testsdir = string.gsub(arg[0], '(.*)/(.*)', '%1')
 local luacmd = arg[-1]
 
-assert(dir(testsdir, function()
+dir.mk('argstests', function()
     writef(
         'run-args.lua',
         [[
@@ -34,7 +33,9 @@ assert(dir(testsdir, function()
     assert(run{luacmd, 'run-args.lua', 'one-arg'})
     assert(run{luacmd, 'run-args.lua', 'this-arg', 'another-arg', 'yet another arg'})
     assert(run{luacmd, 'run-args.lua', 'HELLO this is just one arg', 'another arg'})
-end))
+end)
+
+del('argstests')
 
 dir.mk('exitcodetests', function()
     writef(

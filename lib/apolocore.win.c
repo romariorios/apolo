@@ -83,7 +83,7 @@ int native_rmdir(const char *dir)
     return RemoveDirectory(dir);
 }
 
-int native_run(
+struct native_run_result native_run(
     const char *executable, const char **exeargs, const char **envstrings)
 {
     char cmdline[1024];
@@ -127,9 +127,25 @@ int native_run(
 
     memset(&pinfo, 0, sizeof(pinfo));
 
-    CreateProcess(
+    BOOL result = CreateProcess(
         NULL, cmdline, NULL, NULL, FALSE, 0, env,
         NULL, &suinfo, &pinfo);
-
-    return WaitForSingleObject(pinfo.hProcess, INFINITE) == WAIT_OBJECT_0;
+    
+    struct native_run_result res;
+    
+    if (result == FALSE)
+        switch (GetLastError()) {
+        case ERROR_FILE_NOT_FOUND:
+            res.tag = NATIVE_RUN_NOTFOUND;
+            return res;
+        default:
+            return res;
+        }
+    
+    WaitForSingleObject(pinfo.hProcess, INFINITE);
+    
+    res.tag = NATIVE_RUN_SUCCESS;
+    GetExitCodeProcess(pinfo.hProcess, (PDWORD) &res.exit_code);
+    
+    return res;
 }
