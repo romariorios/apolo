@@ -2,7 +2,7 @@ require 'apolo'
 
 print(inspect(dir.entries()))
 dir('..', function()
-    print(inspect(apolo.dir.entries()))
+    print(inspect(dir.entries()))
 end)
 print(inspect(dir.entries()))
 
