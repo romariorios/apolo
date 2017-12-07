@@ -31,9 +31,19 @@ int native_chdir(const char *dir)
     return SetCurrentDirectory(dir) != 0;
 }
 
+int native_copy(const char *orig, const char *dest)
+{
+    return CopyFile(orig, dest, FALSE) == TRUE;
+}
+
 void native_curdir(char *dir)
 {
     GetCurrentDirectory(512, dir);
+}
+
+int native_exists(const char *path)
+{
+    return GetFileAttributes(path) != INVALID_FILE_ATTRIBUTES;
 }
 
 int native_fillentryarray(lua_State *L, const char *dir)
@@ -76,6 +86,11 @@ int native_mkdir(const char *dir)
     sec.bInheritHandle = FALSE;
 
     return CreateDirectory(dir, &sec) != 0;
+}
+
+int native_move(const char *orig, const char *dest)
+{
+    return MoveFile(orig, dest) == TRUE;
 }
 
 int native_rmdir(const char *dir)

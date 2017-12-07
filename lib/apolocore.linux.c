@@ -44,12 +44,18 @@ int native_chdir(const char *dir)
     return chdir(dir) != -1;
 }
 
+int native_copy(const char *orig, const char *dest)
+{
+    // noop, because Linux calls /bin/cp from Lua
+    return 0;
+}
+
 void native_curdir(char *dir)
 {
     getcwd(dir, 512);
 }
 
-enum native_err native_exists(const char *path)
+int native_exists(const char *path)
 {
     struct stat st = {0};
 
@@ -116,6 +122,12 @@ int native_mkdir(const char *dir)
     // rx to everyone else
     mkdir(dir, 0755);
     return 1;
+}
+
+int native_move(const char *orig, const char *dest)
+{
+    // noop, because Linux calls /bin/mv from Lua
+    return 0;
 }
 
 int native_rmdir(const char *dir)

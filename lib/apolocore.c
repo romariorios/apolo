@@ -55,6 +55,20 @@ static int apolocore_chdir(lua_State *L)
     return 1;
 }
 
+static int apolocore_copy(lua_State *L)
+{
+    check_argc(2);
+    check_arg_type(1, LUA_TSTRING);
+    check_arg_type(2, LUA_TSTRING);
+    
+    lua_pushboolean(
+        L,
+        native_copy(
+            lua_tostring(L, 1),
+            lua_tostring(L, 2)));
+    return 1;
+}
+
 static int apolocore_curdir(lua_State *L)
 {
     char dir[512];
@@ -112,6 +126,20 @@ static int apolocore_mkdir(lua_State *L)
 
     // return native_mkdir's return
     lua_pushboolean(L, native_mkdir(lua_tostring(L, 1)));
+    return 1;
+}
+
+static int apolocore_move(lua_State *L)
+{
+    check_argc(2);
+    check_arg_type(1, LUA_TSTRING);
+    check_arg_type(2, LUA_TSTRING);
+    
+    lua_pushboolean(
+        L,
+        native_move(
+            lua_tostring(L, 1),
+            lua_tostring(L, 2)));
     return 1;
 }
 
@@ -191,10 +219,12 @@ static int apolocore_run(lua_State *L)
 
 static const struct luaL_Reg apolocore[] = {
     {"chdir", apolocore_chdir},
+    {"copy", apolocore_copy},
     {"curdir", apolocore_curdir},
     {"exists", apolocore_exists},
     {"listdirentries", apolocore_listdirentries},
     {"mkdir", apolocore_mkdir},
+    {"move", apolocore_move},
     {"rmdir", apolocore_rmdir},
     {"run", apolocore_run},
     {NULL, NULL}

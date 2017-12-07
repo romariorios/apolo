@@ -30,7 +30,7 @@ dir.mk('copymovetests', function()
     dir.mk 'copied_files'
     dir '..'
 
-    copy(glob('filey*'), 'copied_files')
+    assert(copy(glob('filey*'), 'copied_files'))
     dir('copied_files', function()
         for _, v in ipairs(dir.entries()) do
             assert(readf(v) == 'filey text', 'Got text: ' .. readf(v))
@@ -41,7 +41,7 @@ dir.mk('copymovetests', function()
     dir '..'
 
     local cur_entryinfos = dir.entryinfos()
-    move(glob('filey*'), 'moved_files')
+    assert(move(glob('filey*'), 'moved_files'))
     for _, f in ipairs(glob('filey*')) do
         assert(not cur_entryinfos[f], 'File ' .. f .. ' was not moved')
     end

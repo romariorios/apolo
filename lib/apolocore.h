@@ -38,12 +38,12 @@ enum native_err {
 void insert_direntry(lua_State *L, int index, const char *dirname, const char *type);
 
 int native_chdir(const char *dir);
+int native_copy(const char *orig, const char *dest);
 void native_curdir(char *dir);
-
-enum native_err native_exists(const char *path);
-
+int native_exists(const char *path);
 int native_fillentryarray(lua_State *L, const char *dir);
 int native_mkdir(const char *dir);
+int native_move(const char *orig, const char *dest);
 int native_rmdir(const char *dir);
 
 struct native_run_result

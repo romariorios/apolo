@@ -62,7 +62,7 @@ local function apolo_copymove(orig, dest, coreop)
 
     for _, path in ipairs(orig) do
         if not coreop(path, dest) then
-            return false
+            return false, 'Failed on file ' .. path
         end
     end
 
