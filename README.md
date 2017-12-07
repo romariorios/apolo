@@ -236,6 +236,9 @@ For example, if you want `readf` to handle `http` addresses, do the following:
 - Arguments:
   - `env_table`: table
   - `command`: string or table
+- Return:
+  - On success: boolean, number
+  - On failure: nil, string
 
 Runs processes. If `command` is a string, it will be parsed and executed.
 Otherwise, if it's a table, the first element of `command` will be the
@@ -257,6 +260,12 @@ function that will execute all commands in your defined custom environment:
 
     local en_run = run.env{LC_ALL = 'en_US'}
     en_run 'ls -la "foo bar"'
+
+It returns `true` followed by the exit code when it's successful; otherwise,
+it returns `nil` followed by the error string. That way, the user can wrap
+any run call with `assert`:
+
+    assert(en_run 'lls -la "foo bar"')  -- Error: Command not found
 
 ### `writef[.app](filename, content)`
 
