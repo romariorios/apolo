@@ -50,6 +50,11 @@ files -- both the lua library and the shared library need to be available as
 imports in order for the library to work. One way to make it work, for example,
 is just running lua from where the libraries are at.
 
+### Running tests
+
+To run all tests, first compile the project, then enter the `lib` directory and
+execute the `runtests.lua` script -- which is itself written using Apolo.
+
 ## Library reference
 
 These following are the functions available in the library and their usage.
