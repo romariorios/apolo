@@ -140,7 +140,7 @@ struct native_run_result native_run(
     /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
     if (fork_res < 0) {
-        struct native_run_result res = {NATIVE_RUN_FORKFAILED, 0};
+        struct native_run_result res = {NATIVE_ERR_FORKFAILED, 0};
         return res;
     }
 
@@ -148,12 +148,12 @@ struct native_run_result native_run(
         close(pipe_fd[1]);
         read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
 
-        struct native_run_result res;
+        struct native_run_result res = {NATIVE_ERR_INVALID, 0};
         switch (execvpe_errno) {
         case 0:  // success
             break;
         case ENOENT:
-            res.tag = NATIVE_RUN_NOTFOUND;
+            res.tag = NATIVE_ERR_NOTFOUND;
             return res;
 
         // TODO treat other exec errors
@@ -165,7 +165,7 @@ struct native_run_result native_run(
         int exit_code;
         waitpid(fork_res, &exit_code, 0);
 
-        res.tag = NATIVE_RUN_SUCCESS;
+        res.tag = NATIVE_ERR_SUCCESS;
         res.exit_code = WEXITSTATUS(exit_code);
         return res;
     }

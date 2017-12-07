@@ -130,22 +130,22 @@ struct native_run_result native_run(
     BOOL result = CreateProcess(
         NULL, cmdline, NULL, NULL, FALSE, 0, env,
         NULL, &suinfo, &pinfo);
-    
+
     struct native_run_result res;
-    
+
     if (result == FALSE)
         switch (GetLastError()) {
         case ERROR_FILE_NOT_FOUND:
-            res.tag = NATIVE_RUN_NOTFOUND;
+            res.tag = NATIVE_ERR_NOTFOUND;
             return res;
         default:
             return res;
         }
-    
+
     WaitForSingleObject(pinfo.hProcess, INFINITE);
-    
-    res.tag = NATIVE_RUN_SUCCESS;
+
+    res.tag = NATIVE_ERR_SUCCESS;
     GetExitCodeProcess(pinfo.hProcess, (PDWORD) &res.exit_code);
-    
+
     return res;
 }

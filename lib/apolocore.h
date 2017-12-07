@@ -24,6 +24,15 @@
 
 #include <lua.h>
 
+enum native_err {
+    NATIVE_ERR_INVALID = 0x0,
+
+    NATIVE_ERR_FORKFAILED,
+    NATIVE_ERR_NOTFOUND,
+
+    NATIVE_ERR_SUCCESS
+};
+
 void insert_direntry(lua_State *L, int index, const char *dirname, const char *type);
 
 int native_chdir(const char *dir);
@@ -34,14 +43,7 @@ int native_rmdir(const char *dir);
 
 struct native_run_result
 {
-    enum {
-        NATIVE_RUN_INVALID = 0x0,
-
-        NATIVE_RUN_FORKFAILED,
-        NATIVE_RUN_NOTFOUND,
-        NATIVE_RUN_SUCCESS
-    } tag;
-
+    enum native_err tag;
     int exit_code;
 };
 

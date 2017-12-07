@@ -156,24 +156,24 @@ static int apolocore_run(lua_State *L)
         res = native_run(executable, exeargs, envstrings);
 
         switch (res.tag) {
-        case NATIVE_RUN_FORKFAILED:
+        case NATIVE_ERR_FORKFAILED:
             lua_pushnil(L);
             lua_pushstring(L, "Failed to fork");
 
             return 2;
-        case NATIVE_RUN_NOTFOUND:
+        case NATIVE_ERR_NOTFOUND:
             lua_pushnil(L);
             lua_pushstring(L, "Command not found");
 
             return 2;
-        case NATIVE_RUN_SUCCESS:
+        case NATIVE_ERR_SUCCESS:
             lua_pushboolean(L, res.exit_code == 0);
             lua_pushnumber(L, res.exit_code);
 
             return 2;
         default:
             lua_pushnil(L);
-            lua_pushstring(L, "Unknown error");
+            lua_pushstring(L, "Unknown error (most likely a bug in apolo)");
 
             return 2;
         }
