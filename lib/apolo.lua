@@ -29,11 +29,15 @@ end
 
 if apolo.core.osname == 'linux' then
     function apolo.core.copy(orig, dest)
-        apolo.run{'cp', '-r', orig, dest}
+        return apolo.run{'/bin/cp', '-r', '--preserve=all', '--', orig, dest}
+    end
+
+    function apolo.core.move(orig, dest)
+        return apolo.run{'/bin/mv', '--', orig, dest}
     end
 end
 
-setmetatable(_G, {
+setmetatable(apolo, {
     __index = function(table, key)
         local v = rawget(table, key)
         if v then
@@ -45,8 +49,41 @@ setmetatable(_G, {
 
 apolo.dir = {}
 
+local function apolo_copymove(orig, dest, coreop)
+    assert(type(dest) == 'string', 'Expecting string as destination')
+
+    if type(orig) == 'string' then
+        local success = coreop(orig, dest)
+
+        return success
+    end
+
+    assert(type(orig) == 'table', 'Expecting string or table as origin')
+
+    for _, path in ipairs(orig) do
+        if not coreop(path, dest) then
+            return false
+        end
+    end
+
+    return true
+end
+
+function apolo.copy(orig, dest)
+    return apolo_copymove(orig, dest, apolo.core.copy)
+end
+
+function apolo.move(orig, dest)
+    return apolo_copymove(orig, dest, apolo.core.move)
+end
+
 function apolo.del(entry)
-    if apolo.dir.entryinfos()[entry].type == 'dir' then
+    local cur_entry_infos = apolo.dir.entryinfos()[entry]
+    if not cur_entry_infos then
+        return false
+    end
+
+    if cur_entry_infos.type == 'dir' then
         -- Enter dir and remove everything in it
         apolo.dir(entry, function()
             for name, e in pairs(apolo.dir.entryinfos()) do
@@ -96,6 +133,8 @@ function apolo.dir.entryinfos(dir)
 
     return res
 end
+
+apolo.exists = apolo.core.exists
 
 function apolo.dir.mk(dir, fun)
     apolo.core.mkdir(dir)

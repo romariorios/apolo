@@ -28,7 +28,9 @@ enum native_err {
     NATIVE_ERR_INVALID = 0x0,
 
     NATIVE_ERR_FORKFAILED,
+    NATIVE_ERR_INUSE,
     NATIVE_ERR_NOTFOUND,
+    NATIVE_ERR_PERMISSION,
 
     NATIVE_ERR_SUCCESS
 };
@@ -37,6 +39,9 @@ void insert_direntry(lua_State *L, int index, const char *dirname, const char *t
 
 int native_chdir(const char *dir);
 void native_curdir(char *dir);
+
+enum native_err native_exists(const char *path);
+
 int native_fillentryarray(lua_State *L, const char *dir);
 int native_mkdir(const char *dir);
 int native_rmdir(const char *dir);

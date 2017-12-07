@@ -23,6 +23,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -46,6 +47,13 @@ int native_chdir(const char *dir)
 void native_curdir(char *dir)
 {
     getcwd(dir, 512);
+}
+
+enum native_err native_exists(const char *path)
+{
+    struct stat st = {0};
+
+    return stat(path, &st) != -1;
 }
 
 int native_fillentryarray(lua_State *L, const char *dirname)
@@ -100,10 +108,8 @@ int native_fillentryarray(lua_State *L, const char *dirname)
 
 int native_mkdir(const char *dir)
 {
-    struct stat st = {0};
-
     // If directory already exists, return false
-    if (stat(dir, &st) != -1)
+    if (native_exists(dir))
         return 0;
 
     // rwx permissions to owner

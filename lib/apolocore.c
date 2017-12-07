@@ -65,6 +65,15 @@ static int apolocore_curdir(lua_State *L)
     return 1;
 }
 
+static int apolocore_exists(lua_State *L)
+{
+    check_argc(1);
+    check_arg_type(1, LUA_TSTRING);
+
+    lua_pushboolean(L, native_exists(lua_tostring(L, 1)));
+    return 1;
+}
+
 // To be called inside of native_fillentryarray
 void insert_direntry(lua_State *L, int index, const char *dirname, const char *type)
 {
@@ -183,6 +192,7 @@ static int apolocore_run(lua_State *L)
 static const struct luaL_Reg apolocore[] = {
     {"chdir", apolocore_chdir},
     {"curdir", apolocore_curdir},
+    {"exists", apolocore_exists},
     {"listdirentries", apolocore_listdirentries},
     {"mkdir", apolocore_mkdir},
     {"rmdir", apolocore_rmdir},
