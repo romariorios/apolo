@@ -1,10 +1,10 @@
-# Apolo: a library to aid Lua scripts as Bash/Batch replacements
+# Apolo: make Lua launcher scripts
 
-Apolo is a library with the goal of aiding the creation of Lua scripts as
-shell script and Windows batch replacements. It offers some functionalties
-that standard Lua lacks, like filesystem manipulation mechanisms, for example,
-but it also offers some facilities that can be (and are) written in pure Lua,
-but are repeatedly used in a context of init scripts and are more convenient
+Apolo is a library with the goal of aiding the creation of Lua launcher scripts,
+replacing shell script and Windows batch. It offers some functionalties that
+standard Lua lacks, like filesystem manipulation mechanisms, for example. It
+also offers some facilities that can be (and are) written in pure Lua, but
+are repeatedly used in a context of launcher scripts and are more convenient
 than using pure lua directly (for example, reading files driectly to strings
 without exposing the file handle).
 
@@ -26,17 +26,18 @@ It has the following functionalities implemented:
 ### Compililing
 
 Apolo is currently tested on Linux and Windows -- using gcc and mingw,
-respectively. To compile for linux, do
+respectively. To compile for Linux, run
 
     make linux
 
-To compile for windows:
+To compile for Windows:
 
     mingw32-make mingw
 
 assuming `mingw32-make` is the command for Make in your system.
 
-Apolo has no dependencies other than Lua 5.3 and gcc.
+Apolo was tested on gcc on Linux, and on MinGW on Windows. Aside from that,
+it depends only on Lua 5.3.
 
 ### Running
 
@@ -124,6 +125,14 @@ The following information is available:
   - `namedpipe`: named pipe (Linux-only)
   - `symlink`: symbolic link (Linux-only)
   - `udsocket`: Unix domain socket (Linux-only)
+
+### `exists(path)`
+
+- Arguments:
+  - `path`: string
+- Return : boolean
+
+Returns `true` if `path` exists; `false` otherwise.
 
 ### `inspect(value)`
 
@@ -280,103 +289,3 @@ Otherwise, if `filename` exists, there are two options:
 
 - `writef(filename, content)` will replace `filename`'s contents with `content`
 - `writef.app(filename, content)` will append `content` to `filename`
-
-## `core` functions
-
-Besides all functions Apolo defines, it also defines a table called `core`,
-which contains low-level functions that come mostly from the platform-specific
-`apolocore` component of Apolo.
-
-### `core.chdir(dir)`
-
-- Arguments:
-  - `dir`: string
-- Return: boolean
-
-Changes the current directory. Returns `false` on failure.
-
-### `core.copy(orig, dest)`
-
-- Arguments:
-  - `orig`: string
-  - `dest`: string
-- Return: boolean
-
-Copies `orig` to `dest`. Is not guaranteed to work if `orig` is a glob pattern.
-Returns `false` on failure; `true` otherwise.
-
-This is a Lua function on Linux, but a C function on Windows.
-
-### `core.curdir()`
-
-- Return: string
-
-Returns current directory.
-
-### `core.exists(path)`
-
-- Arguments:
-  - `path`: string
-- Return : boolean
-
-Returns `true` if `path` exists; `false` otherwise.
-
-### `core.listdirentries(dir)`
-
-- Arguments:
-  - `dir`: string
-- Return: list of tables
-
-Returns a list of tables containing the entries in the current directory and
-their respective info.
-
-### `core.mkdir(dir)`
-
-- Arguments:
-  - `dir`: string
-- Return: boolean
-
-Create directory `dir`. Returns `false` on failure; `true` otherwise.
-
-### `core.move(orig, dest)`
-
-- Arguments:
-  - `orig`: string
-  - `dest`: string
-- Return: boolean
-
-Moves `orig` to `dest`. Is not guaranteed to work if `orig` is a glob pattern.
-Returns `false` on failure; `true` otherwise.
-
-This is a Lua function on Linux, but a C function on Windows.
-
-### `core.osname`
-
-Identifier for the current OS -- `linux` if Linux or `win` if Windows.
-
-### `core.rmdir(dir)`
-
-- Arguments:
-  - `dir`: string
-- Return: boolean
-
-Removes `dir` if it's empty. Returns `false` on failure; `true` otherwise.
-
-This is a Lua function on Linux, but a C function on Windows.
-
-### `core.run(executable, exeargs, envstrings)`
-
-- Argument:
-  - `executable`: string
-  - `exeargs`: list of strings
-  - `envstrings`: list of strings
-- Return: same as `run`
-
-Runs `executable` with `exeargs` as the list of arguments and `envstrings`
-as its additional environment. Note that neither `exeargs` nor `envstrings`
-can be null -- if you want to pass no arguments or environment variables,
-just pass an empty table.
-
-`envstrings` is a list of strings in the following format: `VARNAME=VAL`.
-
-For return values, see the documentation for `run`.
