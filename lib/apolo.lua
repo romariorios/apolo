@@ -37,16 +37,6 @@ if apolo.core.osname == 'linux' then
     end
 end
 
-setmetatable(apolo, {
-    __index = function(table, key)
-        local v = rawget(table, key)
-        if v then
-            return v
-        end
-
-        return os.getenv(key)
-    end})
-
 apolo.dir = {}
 
 local function apolo_copymove(orig, dest, coreop)
@@ -103,6 +93,15 @@ function apolo.del(entry)
 
     return true
 end
+
+apolo.E = {}
+local apolo_E_mt = {}
+
+function apolo_E_mt.__index(_, ind)
+    return os.getenv(ind)
+end
+
+setmetatable(apolo.E, apolo_E_mt)
 
 function apolo.dir.entries(dir)
     local infos = apolo.dir.entryinfos(dir)

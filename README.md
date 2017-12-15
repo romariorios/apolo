@@ -126,6 +126,16 @@ The following information is available:
   - `symlink`: symbolic link (Linux-only)
   - `udsocket`: Unix domain socket (Linux-only)
 
+### `E`
+
+Access the system environment. You can access the environment variables by
+using them as if they were fields of the `E` table -- for example, `E.HOME`,
+`E.SHELL`, etc.:
+
+    require 'apolo'
+
+    run{E.CC, 'hello.c', '-o hello'}
+
 ### `exists(path)`
 
 - Arguments:
