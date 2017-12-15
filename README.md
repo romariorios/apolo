@@ -1,55 +1,80 @@
 # Apolo: make Lua launcher scripts
 
-Apolo is a library with the goal of aiding the creation of Lua launcher scripts,
-replacing shell script and Windows batch. It offers some functionalties that
-standard Lua lacks, like filesystem manipulation mechanisms, for example. It
-also offers some facilities that can be (and are) written in pure Lua, but
-are repeatedly used in a context of launcher scripts and are more convenient
-than using pure lua directly (for example, reading files driectly to strings
-without exposing the file handle).
+Apolo is a library to aid the creation of Lua launcher scripts, replacing
+Shell scripts and Windows batch files.
 
-There are many libraries that offer the functionalties provided by Apolo
-currently, but the difference is that Apolo is just one library with two files
-aiming to 1) contain all functionalities and offer them in a way that makes
-writing scripts in Lua as convenient as writing them in, say, Bash, and 2)
-it aims to be multi-platform, so you can write the same initialization script
-for both Windows and Linux.
+## Introduction
 
-It has the following functionalities implemented:
+### Launcher scripts
 
-- Filesystem operations (copy, move, delete files; enter directories, etc.)
-- Running commands with a custom environment
-- Command-line options
+Launcher scripts are script files that are used by some programs to adjust
+the environment and control their execution. These scripts are usually
+written in Bash on Linux, and as .BAT files on Windows -- cross-platform
+programs will have to write both.
 
-## Usage
+To avoid the problems of Bash and Windows batch files, many people choose
+other scripting languages for the task, like Perl, Python or Ruby. The problem
+with these choices is that, when the platform doesn't support them natively
+(i.e. Windows), the developer is forced to provide the interpreter together
+with their program -- which can be a problem, since the interpreters for these
+languages are several megabytes in size.
 
-### Compililing
+### Why Lua
 
-Apolo is currently tested on Linux and Windows -- using gcc and mingw,
-respectively. To compile for Linux, run
+It's already possible to write launcher scripts in Lua today, since Lua is
+just as much of a general-purpose programming language as the ones mentioned
+above. Also, for most applications, with a size of a few hundred kilobytes,
+the weight a Lua interpreter will put on the distribution of a program is
+negligible, making it a very good fit in that regard.
+
+However, pure Lua lacks some core functionalities needed for launcher scripts,
+making it necessary for the developer to select a set of libraries that suits
+their purpose (e.g. filesystem manupilation); also, many convenience features
+present in Bash and the languages above are not present in Lua. So, while it's
+_possible_ to write these kinds of scripts in Lua, it is not as _convenient_
+as it is in the languages above.
+
+### Goal
+
+The final goal of the lirbary is making Lua about as convenient to write
+launcher scripts as, say, Python or Perl, by removing the need to select a set
+of necessary variables for the task and providing an API with similar
+functionalities.
+
+## Compililing
+
+Apolo is a **Lua 5.3** C library, so the Lua headers need to be available.
+It has been tested with **gcc** under both Windows (through MinGW[1]) and
+Linux. To compile, run `make` from the root directory, choosing the platform.
+The available platforms are `linux` and `mingw`:
 
     make linux
 
-To compile for Windows:
+[1]: http://mingw.org/
 
-    mingw32-make mingw
+Other compilers might work (like Clang or MSVC), but they haven't been tested.
 
-assuming `mingw32-make` is the command for Make in your system.
+### Deployment
 
-Apolo was tested on gcc on Linux, and on MinGW on Windows. Aside from that,
-it depends only on Lua 5.3.
+This library is part a pure Lua library, part a C Lua library. The easiest way
+to deploy an application using a Lua script with Apolo is to drop the Lua
+interpreter, the script itself, and `apolo.lua` plus `apolocore.{so|dll}` in
+the root dir of the application.
 
-### Running
+## Usage
 
-To run Apolo or include it in a Lua script, just require the library directly:
+To use Apolo in a Lua script, just require the library directly:
 
     require 'apolo'
 
-All the functions (as well as all env vars) will be available globally. The
-library is composed of the `apolo.lua` and `apolocore.so` or `apolocore.dll`
-files -- both the lua library and the shared library need to be available as
-imports in order for the library to work. One way to make it work, for example,
-is just running lua from where the libraries are at.
+Since the goal of Apolo is to make scripts whose primary purpose is to launch
+programs, meaning that its functions will be the main functionality of the
+script, all of the will be available globally by default. A planned feature is
+to provide the option of loading the library as it is usually done for most
+libraries -- that is:
+
+    # Not implemented yet
+    local apolo = require 'apolo'
 
 ### Running tests
 
