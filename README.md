@@ -1,6 +1,6 @@
-# Apolo: make Lua launcher scripts
+# Apolo: launcher scripts in Lua
 
-Apolo is a library to aid the creation of Lua launcher scripts, replacing
+Apolo is a library to aid the creation of launcher scripts in Lua, replacing
 Shell scripts and Windows batch files.
 
 ## Introduction
@@ -16,47 +16,45 @@ To avoid the problems of Bash and Windows batch files, many people choose
 other scripting languages for the task, like Perl, Python or Ruby. The problem
 with these choices is that, when the platform doesn't support them natively
 (i.e. Windows), the developer is forced to provide the interpreter together
-with their program -- which can be a problem, since the interpreters for these
-languages are several megabytes in size.
+with their program; since the interpreters for these
+languages are several megabytes in size, this can be a problem.
 
 ### Why Lua
 
 It's already possible to write launcher scripts in Lua today, since Lua is
 just as much of a general-purpose programming language as the ones mentioned
-above. Also, for most applications, with a size of a few hundred kilobytes,
+above. Also, with a size of a few hundred kilobytes,
 the weight a Lua interpreter will put on the distribution of a program is
-negligible, making it a very good fit in that regard.
+negligible for most applications, making it a very good fit in that regard.
 
-However, pure Lua lacks some core functionalities needed for launcher scripts,
+However, pure Lua lacks some core functionalities needed by launcher scripts,
 making it necessary for the developer to select a set of libraries that suits
-their purpose (e.g. filesystem manupilation); also, many convenience features
+their purpose (e.g. filesystem manipulation); also, many convenience features
 present in Bash and the languages above are not present in Lua. So, while it's
 _possible_ to write these kinds of scripts in Lua, it is not as _convenient_
 as it is in the languages above.
 
 ### Goal
 
-The final goal of the lirbary is making Lua about as convenient to write
+The goal of the lirbary is to make Lua about as convenient to write
 launcher scripts as, say, Python or Perl, by removing the need to select a set
 of necessary variables for the task and providing an API with similar
 functionalities.
 
 ## Compililing
 
-Apolo is a **Lua 5.3** C library, so the Lua headers need to be available.
-It has been tested with **gcc** under both Windows (through MinGW[1]) and
-Linux. To compile, run `make` from the root directory, choosing the platform.
-The available platforms are `linux` and `mingw`:
-
-    make linux
+Apolo is a **Lua 5.3** C library, so, to compile the library, the Lua headers need to be available.
+The code has been tested with **gcc** under both Windows (through MinGW[1]) and
+Linux. Run `make <plat>` from the root directory, where `<plat>` can be `linux` or `mingw`.
 
 [1]: http://mingw.org/
 
-Other compilers might work (like Clang or MSVC), but they haven't been tested.
+Compilation should work in other compilers like Clang or MSVC, but we haven't tested
+them, so it may require some tweaking.
 
 ### Deployment
 
-This library is part a pure Lua library, part a C Lua library. The easiest way
+This library is written in Lua and C. The easiest way
 to deploy an application using a Lua script with Apolo is to drop the Lua
 interpreter, the script itself, and `apolo.lua` plus `apolocore.{so|dll}` in
 the root dir of the application.
@@ -65,10 +63,10 @@ the root dir of the application.
 
 To use Apolo in a Lua script, just require the library directly:
 
-    require 'apolo'
+    require 'apolo'.global()
 
 Since the goal of Apolo is to make scripts whose primary purpose is to launch
-programs, meaning that its functions will be the main functionality of the
+programs, all of the fun will be global by default meaning that its functions will be the main functionality of the
 script, all of the will be available globally by default. A planned feature is
 to provide the option of loading the library as it is usually done for most
 libraries -- that is:
@@ -83,13 +81,13 @@ execute the `runtests.lua` script -- which is itself written using Apolo.
 
 ## Library reference
 
-These following are the functions available in the library and their usage.
+The following are the functions available in the library and their usage.
 
 ### `copy(orig, dest)`
 
 - Arguments:
-  - `orig`: string or list of strings
-  - `dest`: string
+  - `orig`: path or list of paths
+  - `dest`: path
 - Return: boolean
 
 Copies `orig` to `dest`; returns `false` in case of an error. If `orig` is a

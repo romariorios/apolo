@@ -1,4 +1,4 @@
-local apolo = require 'apolo'
+require 'apolo'
 
 local textdomain = "libc"
 local textdomaindir = "/usr/share/locale"
@@ -9,7 +9,7 @@ local rtldlist = {
     "/libx32/ld-linux-x32.so.2"
 }
 
-local opts, parse_err = apolo.parseopts{
+local opts, parse_err = parseopts{
     named = {
         version = {type = "switch"},
         help = {type = "switch"},
@@ -64,7 +64,7 @@ add_env.LD_LIBRARY_VERSION = "$verify_out"
 add_env.LD_VERBOSE = opts.verbose and "yes" or nil
 
 if opts.unused then
-    local ld_debug = LD_DEBUG
+    local ld_debug = E.LD_DEBUG
     if ld_debug then
         ld_debug = ld_debug .. ",unused"
     else
