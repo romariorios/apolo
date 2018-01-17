@@ -2,7 +2,7 @@ require 'apolo':as_global()
 
 del('copymovetests')
 
-dir.mk('copymovetests', function()
+chdir.mk('copymovetests', function()
     local file1text = 'This is file 1'
 
     writef('file1', file1text)
@@ -27,20 +27,18 @@ dir.mk('copymovetests', function()
             'filey text')
     end
 
-    dir.mk 'copied_files'
-    dir '..'
+    mkdir 'copied_files'
 
     assert(copy(glob('filey*'), 'copied_files'))
-    dir('copied_files', function()
-        for _, v in ipairs(dir.entries()) do
+    chdir('copied_files', function()
+        for _, v in ipairs(entries()) do
             assert(readf(v) == 'filey text', 'Got text: ' .. readf(v))
         end
     end)
 
-    dir.mk 'moved_files'
-    dir '..'
+    mkdir 'moved_files'
 
-    local cur_entryinfos = dir.entryinfos()
+    local cur_entryinfos = entry_infos()
     assert(move(glob('filey*'), 'moved_files'))
     for _, f in ipairs(glob('filey*')) do
         assert(not cur_entryinfos[f], 'File ' .. f .. ' was not moved')

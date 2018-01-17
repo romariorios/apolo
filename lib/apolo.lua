@@ -1,4 +1,4 @@
--- Copyright (C) 2017 Luiz Romário Santana Rios
+-- Copyright (C) 2017, 2018 Luiz Romário Santana Rios
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a
 -- copy of this software and associated documentation files (the "Software"),
@@ -44,7 +44,35 @@ function apolo:as_global()
     end
 end
 
-apolo.dir = {}
+apolo.chdir = {}
+
+function apolo.chdir.mk(dir, fun)
+    apolo.mkdir(dir)
+
+    return apolo.chdir(dir, fun)
+end
+
+local apolo_chdir_mt = {}
+
+function apolo_chdir_mt.__call(apolo_dir, dir, fun)
+    -- Get old dir
+    local old_dir = apolo.core.curdir()
+
+    -- Enter dir
+    assert(apolo.core.chdir(dir), "Could not enter directory \"" .. dir .. "\"")
+
+    -- If no function was specified, then remain in the given dir
+    if not fun then
+        return true
+    end
+
+    fun()
+    apolo.core.chdir(old_dir)
+
+    return true
+end
+
+setmetatable(apolo.chdir, apolo_chdir_mt)
 
 local function apolo_copymove(orig, dest, coreop)
     assert(type(dest) == 'string', 'Expecting string as destination')
@@ -74,16 +102,18 @@ function apolo.move(orig, dest)
     return apolo_copymove(orig, dest, apolo.core.move)
 end
 
+apolo.current = apolo.core.curdir
+
 function apolo.del(entry)
-    local cur_entry_infos = apolo.dir.entryinfos()[entry]
+    local cur_entry_infos = apolo.entry_infos()[entry]
     if not cur_entry_infos then
         return false
     end
 
     if cur_entry_infos.type == 'dir' then
         -- Enter dir and remove everything in it
-        apolo.dir(entry, function()
-            for name, e in pairs(apolo.dir.entryinfos()) do
+        apolo.chdir(entry, function()
+            for name, e in pairs(apolo.entry_infos()) do
                 if e.type == "dir" then
                     assert(apolo.del(name))
                 else
@@ -110,8 +140,8 @@ end
 
 setmetatable(apolo.E, apolo_E_mt)
 
-function apolo.dir.entries(dir)
-    local infos = apolo.dir.entryinfos(dir)
+function apolo.entries(dir)
+    local infos = apolo.entry_infos(dir)
     local res = {}
 
     -- Get only names
@@ -122,7 +152,7 @@ function apolo.dir.entries(dir)
     return res
 end
 
-function apolo.dir.entryinfos(dir)
+function apolo.entry_infos(dir)
     local dir = dir and dir or '.'
     local raw = apolo.core.listdirentries(dir)
     local res = {}
@@ -141,34 +171,6 @@ function apolo.dir.entryinfos(dir)
 end
 
 apolo.exists = apolo.core.exists
-
-function apolo.dir.mk(dir, fun)
-    apolo.core.mkdir(dir)
-
-    return apolo.dir(dir, fun)
-end
-
-local apolo_dir_mt = {}
-
-function apolo_dir_mt.__call(apolo_dir, dir, fun)
-    -- Get old dir
-    local old_dir = apolo.core.curdir()
-
-    -- Enter dir
-    assert(apolo.core.chdir(dir), "Could not enter directory \"" .. dir .. "\"")
-
-    -- If no function was specified, then remain in the given dir
-    if not fun then
-        return true
-    end
-
-    fun()
-    apolo.core.chdir(old_dir)
-
-    return true
-end
-
-setmetatable(apolo.dir, apolo_dir_mt)
 
 local function apolo_inspect(value, visited)
     local vtype = type(value)
@@ -314,7 +316,7 @@ end
 function apolo.glob(pattern)
     local res = {}
 
-    for _, e in ipairs(apolo.dir.entries()) do
+    for _, e in ipairs(apolo.entries()) do
         if apolo_matches_glob_pattern(pattern, e) then
             table.insert(res, e)
         end
@@ -322,6 +324,8 @@ function apolo.glob(pattern)
 
     return res
 end
+
+apolo.mkdir = apolo.core.mkdir
 
 function apolo.parseopts(options)
     local named = options.named

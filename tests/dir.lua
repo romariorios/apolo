@@ -1,13 +1,13 @@
 require 'apolo':as_global()
 
-print(inspect(dir.entries()))
-dir('..', function()
-    print(inspect(dir.entries()))
+print(inspect(entries()))
+chdir('..', function()
+    print(inspect(entries()))
 end)
-print(inspect(dir.entries()))
+print(inspect(entries()))
 
 -- Test del
-dir.mk('tests', function()
+chdir.mk('tests', function()
     for i = 1, 10 do
         writef('file_' .. i, 'CONTENT')
     end

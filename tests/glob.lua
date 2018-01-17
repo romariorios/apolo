@@ -1,6 +1,6 @@
 require 'apolo':as_global()
 
-dir.mk('globtests', function()
+chdir.mk('globtests', function()
     -- Start patterns
     for i = 1, 10 do
         writef('test' .. i, 'This is the test number ' .. i)

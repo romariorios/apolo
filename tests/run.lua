@@ -1,13 +1,13 @@
 require 'apolo':as_global()
 
-dir.mk('apoloruntests', function()
+chdir.mk('apoloruntests', function()
     print('This test is supposed to run the "dir" command')
 
     for i = 1, 10 do
         writef('file_' .. i, 'These are the contents of this file: CONTENT')
     end
 
-    print('These files should be shown: ' .. inspect(dir.entries()))
+    print('These files should be shown: ' .. inspect(entries()))
     run 'dir'
 end)
 
@@ -19,7 +19,7 @@ assert(
 
 local luacmd = arg[-1]
 
-dir.mk('argstests', function()
+chdir.mk('argstests', function()
     writef(
         'run-args.lua',
         [[
@@ -42,7 +42,7 @@ end)
 
 del('argstests')
 
-dir.mk('exitcodetests', function()
+chdir.mk('exitcodetests', function()
     writef(
         'exit-code.lua',
         [[
@@ -63,7 +63,7 @@ end)
 
 del('exitcodetests')
 
-dir.mk('envtests', function()
+chdir.mk('envtests', function()
     writef(
         'check-env.lua',
         [[

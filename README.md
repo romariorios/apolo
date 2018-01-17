@@ -84,6 +84,20 @@ The following are the functions available in the library and their usage.
 
 Populate `_ENV` with the apolo functions, as seen in the "Usage" section above.
 
+### `apolo.chdir[.mk](d[, f])`
+
+- Arguments:
+  - `d`: directory
+  - `f`: function
+- Return: boolean
+
+When called as `chdir(d)`, changes the current directory to `d` and returns
+`false` in case of failure. Calling it as `chdir.mk(d)` will create the
+directory `d` if it doesn't already exist.
+
+If a function `f` is passed, the current directory won't be changed and `f`
+will be executed in `d` instead.
+
 ### `apolo.copy(orig, dest)`
 
 - Arguments:
@@ -95,6 +109,12 @@ Copies `orig` to `dest`; returns `false` in case of an error. If `orig` is a
 list of files, `copy` will return `false` on the first error and will abort
 the copy.
 
+### `apolo.current()`
+
+- Return: current directory
+
+Returns the current directory.
+
 ### `apolo.del(entry)`
 
 - Arguments:
@@ -105,21 +125,17 @@ Deletes the file or directory `entry` and returns `true`. If the file doesn't
 exist, returns `false`. If this function fails to delete `entry`, it raises
 an error.
 
-### `apolo.dir[.mk](d[, f])`
+### `apolo.E`
 
-- Arguments:
-  - `d`: directory
-  - `f`: function
-- Return: boolean
+Access the system environment. You can access the environment variables by
+using them as if they were fields of the `E` table -- for example, `E.HOME`,
+`E.SHELL`, etc.:
 
-When called as `dir(d)`, changes the current directory to `d` and returns
-`false` in case of failure. Calling it as `dir.mk(d)` will create the
-directory `d` if it doesn't already exist.
+    require 'apolo'
 
-If a function `f` is passed, the current directory won't be changed and `f`
-will be executed in `d` instead.
+    run{E.CC, 'hello.c', '-o hello'}
 
-### `apolo.dir.entries([d])`
+### `apolo.entries([d])`
 
 - Arguments:
   - `d`: directory
@@ -129,7 +145,7 @@ Returns a list with all entry names (files and directories) in `d`. If a
 directory isn't passed as an argument, the function will return the entries
 of the current directory.
 
-### `apolo.dir.entryinfos([d])`
+### `apolo.entry_infos([d])`
 
 - Arguments:
   - `d`: directory
@@ -149,16 +165,6 @@ The following information is available:
   - `namedpipe`: named pipe (Linux-only)
   - `symlink`: symbolic link (Linux-only)
   - `udsocket`: Unix domain socket (Linux-only)
-
-### `apolo.E`
-
-Access the system environment. You can access the environment variables by
-using them as if they were fields of the `E` table -- for example, `E.HOME`,
-`E.SHELL`, etc.:
-
-    require 'apolo'
-
-    run{E.CC, 'hello.c', '-o hello'}
 
 ### `apolo.exists(path)`
 
@@ -186,6 +192,14 @@ simple values.
 - Return: list of strings
 
 Gets a list of entries in the current directory that match `pattern`.
+
+### `apolo.mkdir(path)`
+
+- Arguments:
+  - `path`: path to new directory
+- Return: boolean
+
+Tries to create a new directory. Returns `false` when it fails.
 
 ### `apolo.move(orig, dest)`
 
