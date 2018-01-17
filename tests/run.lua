@@ -1,5 +1,4 @@
-apolo_global = true
-require 'apolo'
+require 'apolo':as_global()
 
 dir.mk('apoloruntests', function()
     print('This test is supposed to run the "dir" command')

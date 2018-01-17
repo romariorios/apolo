@@ -61,18 +61,15 @@ the root dir of the application.
 
 ## Usage
 
-To use Apolo in a Lua script, just require the library directly:
+To use Apolo in a Lua script, require the library normally:
 
-    require 'apolo'.global()
-
-Since the goal of Apolo is to make scripts whose primary purpose is to launch
-programs, all of the fun will be global by default meaning that its functions will be the main functionality of the
-script, all of the will be available globally by default. A planned feature is
-to provide the option of loading the library as it is usually done for most
-libraries -- that is:
-
-    # Not implemented yet
     local apolo = require 'apolo'
+
+However, since the goal of Apolo is to make scripts whose primary purpose is
+to launch programs, one might want to have all functions available at the
+global level. To do that, you can require Apolo in the following way:
+
+    require 'apolo':as_global()
 
 ### Running tests
 
@@ -83,31 +80,35 @@ execute the `runtests.lua` script -- which is itself written using Apolo.
 
 The following are the functions available in the library and their usage.
 
-### `copy(orig, dest)`
+### `apolo:as_global()`
+
+Populate `_ENV` with the apolo functions, as seen in the "Usage" section above.
+
+### `apolo.copy(orig, dest)`
 
 - Arguments:
   - `orig`: path or list of paths
-  - `dest`: path
+  - `dest`: path to directory
 - Return: boolean
 
 Copies `orig` to `dest`; returns `false` in case of an error. If `orig` is a
 list of files, `copy` will return `false` on the first error and will abort
 the copy.
 
-### `del(entry)`
+### `apolo.del(entry)`
 
 - Arguments:
-  - `entry`: string
+  - `entry`: path to file or directory
 - Return: boolean
 
 Deletes the file or directory `entry` and returns `true`. If the file doesn't
 exist, returns `false`. If this function fails to delete `entry`, it raises
 an error.
 
-### `dir[.mk](d[, f])`
+### `apolo.dir[.mk](d[, f])`
 
 - Arguments:
-  - `d`: string
+  - `d`: directory
   - `f`: function
 - Return: boolean
 
@@ -118,20 +119,20 @@ directory `d` if it doesn't already exist.
 If a function `f` is passed, the current directory won't be changed and `f`
 will be executed in `d` instead.
 
-### `dir.entries([d])`
+### `apolo.dir.entries([d])`
 
 - Arguments:
-  - `d`: string
+  - `d`: directory
 - Return: list of strings
 
 Returns a list with all entry names (files and directories) in `d`. If a
 directory isn't passed as an argument, the function will return the entries
 of the current directory.
 
-### `dir.entryinfos([d])`
+### `apolo.dir.entryinfos([d])`
 
 - Arguments:
-  - `d`: string
+  - `d`: directory
 - Return: table
 
 Returns a table with the entry names of `d` as keys and tables containing
@@ -149,7 +150,7 @@ The following information is available:
   - `symlink`: symbolic link (Linux-only)
   - `udsocket`: Unix domain socket (Linux-only)
 
-### `E`
+### `apolo.E`
 
 Access the system environment. You can access the environment variables by
 using them as if they were fields of the `E` table -- for example, `E.HOME`,
@@ -159,15 +160,15 @@ using them as if they were fields of the `E` table -- for example, `E.HOME`,
 
     run{E.CC, 'hello.c', '-o hello'}
 
-### `exists(path)`
+### `apolo.exists(path)`
 
 - Arguments:
-  - `path`: string
+  - `path`: file or directory
 - Return : boolean
 
 Returns `true` if `path` exists; `false` otherwise.
 
-### `inspect(value)`
+### `apolo.inspect(value)`
 
 - Arguments:
   - `value`: any Lua value
@@ -178,7 +179,7 @@ guaranteed to be correct Lua code; instead, the function tries to make the
 most natural-looking literal for the value -- which can be valid Lua code for
 simple values.
 
-### `glob(pattern)`
+### `apolo.glob(pattern)`
 
 - Arguments:
   - `pattern`: string
@@ -186,18 +187,18 @@ simple values.
 
 Gets a list of entries in the current directory that match `pattern`.
 
-### `move(orig, dest)`
+### `apolo.move(orig, dest)`
 
 - Arguments:
-  - `orig`: string or list of strings
-  - `dest`: string
+  - `orig`: path or list of paths
+  - `dest`: path
 - Return: boolean
 
 Moves `orig` to `dest`; returns `false` in case of an error. If `orig` is a
 list of files, `move` will return `false` on the first error and will abort
 the copy.
 
-### `parseopts(options)`
+### `apolo.parseopts(options)`
 
 - Arguments:
   - `options`: table
@@ -218,7 +219,7 @@ with a single field named `type` that defines if the option is a `param` or a
 
 E.g.:
 
-    require 'apolo'
+    require 'apolo':as_global()
 
     local opts = parseopts{
         named = {
@@ -235,7 +236,7 @@ The table `parseopts` returns contains all parameters that were present in the
 command-line. Named switches will be attributed a `true` value if they were
 present and `nil` otherwise; everything else will be assigned its value.
 
-E.g. (continued from the previous code snippet:
+E.g. (continued from the previous code snippet):
 
     -- lua script.lua --foo 10 --verbose 20 30 40 50
     assert(opts.foo == '10')
@@ -253,11 +254,11 @@ E.g. (continued from the previous code snippet:
 It's also possible to abbreviate command-line options, as long as they're
 unambiguous -- for example, `--ver` instead of `--verbose`.
 
-### `readf(filename)`
+### `apolo.readf(filename)`
 
 - Arguments:
-  - `filename`: string
-- Return: string
+  - `filename`: file
+- Return: file contents
 
 Returns the contents of `filename` as a string. On failure, it returns `nil`,
 followed by the error string.
@@ -265,7 +266,7 @@ followed by the error string.
 It's possible to install protocol handlers in the `readf.protocol_handlers` table.
 For example, if you want `readf` to handle `http` addresses, do the following:
 
-    require 'apolo'
+    require 'apolo':as_global()
 
     function readf.protocol_handlers.http(url)
         -- code to handle http addresses
@@ -273,7 +274,7 @@ For example, if you want `readf` to handle `http` addresses, do the following:
 
     local robots_txt = readf 'http://duckduckgo.com/robots.txt'
 
-### `run[.env(env_table)](command)`
+### `apolo.run[.env(env_table)](command)`
 
 - Arguments:
   - `env_table`: table
@@ -286,7 +287,7 @@ Runs processes. If `command` is a string, it will be parsed and executed.
 Otherwise, if it's a table, the first element of `command` will be the
 executable and all other elements will be the parameters:
 
-    require 'apolo'
+    require 'apolo':as_global()
 
     -- equivalent commands
     run 'ls -la "foo bar"'
@@ -309,11 +310,11 @@ any run call with `assert`:
 
     assert(en_run 'lls -la "foo bar"')  -- Error: Command not found
 
-### `writef[.app](filename, content)`
+### `apolo.writef[.app](filename, content)`
 
 - Arguments:
-  - `filename`: string
-  - `content`: string
+  - `filename`: path to file
+  - `content`: file contents
 
 Write `content` to `filename`. If the file doesn't exist, it's created and
 written into.

@@ -18,7 +18,7 @@
 -- FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 -- DEALINGS IN THE SOFTWARE.
 
-local apolo = _ENV
+local apolo = {}
 
 apolo.core = require 'apolocore'
 
@@ -34,6 +34,13 @@ if apolo.core.osname == 'linux' then
 
     function apolo.core.move(orig, dest)
         return apolo.run{'/bin/mv', '--', orig, dest}
+    end
+end
+
+function apolo:as_global()
+    -- Declare everything in _ENV
+    for k, v in pairs(self) do
+        _ENV[k] = v
     end
 end
 
@@ -592,3 +599,5 @@ function apolo_writef_mt.__call(_, filename, content)
 end
 
 setmetatable(apolo.writef, apolo_writef_mt)
+
+return apolo

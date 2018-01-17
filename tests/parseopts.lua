@@ -1,4 +1,4 @@
-require 'apolo'
+require 'apolo':as_global()
 
 -- Test 1: normal switches
 local opts = {

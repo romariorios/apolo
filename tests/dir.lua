@@ -1,4 +1,4 @@
-require 'apolo'
+require 'apolo':as_global()
 
 print(inspect(dir.entries()))
 dir('..', function()

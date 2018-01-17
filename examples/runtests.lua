@@ -1,5 +1,4 @@
-apolo_global = true
-require 'apolo'
+require 'apolo':as_global()
 
 if not exists 'cmake' then
     error 'cmake is not in PATH'

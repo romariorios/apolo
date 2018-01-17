@@ -1,4 +1,4 @@
-require 'apolo'
+require 'apolo':as_global()
 
 local textdomain = "libc"
 local textdomaindir = "/usr/share/locale"
