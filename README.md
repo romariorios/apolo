@@ -10,7 +10,7 @@ Shell scripts and Windows batch files.
 Launcher scripts are script files that are used by some programs to adjust
 the environment and control their execution. These scripts are usually
 written in Bash on Linux, and as .BAT files on Windows -- cross-platform
-programs will have to write both.
+developers will have to write both versions.
 
 To avoid the problems of Bash and Windows batch files, many people choose
 other scripting languages for the task, like Perl, Python or Ruby. The problem
@@ -36,12 +36,12 @@ as it is in the languages above.
 
 ### Goal
 
-The goal of the lirbary is to make Lua about as convenient to write
+The goal of the library is to make Lua about as convenient to write
 launcher scripts as, say, Python or Perl, by removing the need to select a set
 of necessary variables for the task and providing an API with similar
 functionalities.
 
-## Compililing
+## Compiling
 
 Apolo is a **Lua 5.3** C library, so, to compile the library, the Lua headers need to be available.
 The code has been tested with **gcc** under both Windows (through MinGW[1]) and
@@ -61,7 +61,7 @@ the root dir of the application.
 
 ## Usage
 
-To use Apolo in a Lua script, require the library normally:
+To use Apolo in a Lua script, you can require the library normally:
 
     local apolo = require 'apolo'
 
@@ -84,6 +84,19 @@ The following are the functions available in the library and their usage.
 
 Populate `_ENV` with the apolo functions, as seen in the "Usage" section above.
 
+Requiring Apolo with `as_global()` makes it possible to use the Apolo functions
+without prefixing them with `apolo` -- or whatever prefix you chose:
+
+    -- Usual library-like require
+    local apolo = require 'apolo'
+
+    apolo.mkdir(apolo.current() .. '/test')
+
+    -- as_global require
+    require 'apolo':as_global()
+
+    mkdir(current() .. '/test')
+
 ### `apolo.chdir[.mk](d[, f])`
 
 - Arguments:
@@ -101,12 +114,12 @@ will be executed in `d` instead.
 ### `apolo.copy(orig, dest)`
 
 - Arguments:
-  - `orig`: path or list of paths
+  - `orig`: path or sequence of paths
   - `dest`: path to directory
 - Return: boolean
 
 Copies `orig` to `dest`; returns `false` in case of an error. If `orig` is a
-list of files, `copy` will return `false` on the first error and will abort
+sequence of files, `copy` will return `false` on the first error and will abort
 the copy.
 
 ### `apolo.current()`
@@ -131,17 +144,17 @@ Access the system environment. You can access the environment variables by
 using them as if they were fields of the `E` table -- for example, `E.HOME`,
 `E.SHELL`, etc.:
 
-    require 'apolo'
+    require 'apolo':as_global()
 
-    run{E.CC, 'hello.c', '-o hello'}
+    print(E.HOME)
 
 ### `apolo.entries([d])`
 
 - Arguments:
   - `d`: directory
-- Return: list of strings
+- Return: sequence of entries
 
-Returns a list with all entry names (files and directories) in `d`. If a
+Returns a sequence with all entry names (files and directories) in `d`. If a
 directory isn't passed as an argument, the function will return the entries
 of the current directory.
 
@@ -178,7 +191,7 @@ Returns `true` if `path` exists; `false` otherwise.
 
 - Arguments:
   - `value`: any Lua value
-- Return: string
+- Return: string representation of the value
 
 Returns a string representation of `value`. The string representation is not
 guaranteed to be correct Lua code; instead, the function tries to make the
@@ -189,9 +202,9 @@ simple values.
 
 - Arguments:
   - `pattern`: string
-- Return: list of strings
+- Return: sequence of entries (files or directories)
 
-Gets a list of entries in the current directory that match `pattern`.
+Gets a sequence of entries in the current directory that match `pattern`.
 
 ### `apolo.mkdir(path)`
 
@@ -204,12 +217,12 @@ Tries to create a new directory. Returns `false` when it fails.
 ### `apolo.move(orig, dest)`
 
 - Arguments:
-  - `orig`: path or list of paths
+  - `orig`: path or sequence of paths
   - `dest`: path
 - Return: boolean
 
 Moves `orig` to `dest`; returns `false` in case of an error. If `orig` is a
-list of files, `move` will return `false` on the first error and will abort
+sequence of files, `move` will return `false` on the first error and will abort
 the copy.
 
 ### `apolo.parseopts(options)`
@@ -219,11 +232,11 @@ the copy.
 - Return: table
 
 Receives a table describing how to parse the command-line options and returns
-a table contaning the parsed options from the command-line. The table has the
+a table containing the parsed options from the command-line. The table has the
 following fields:
 
-- `named`: table contaning named command-line paramaters and switches
-- `positional`: list containing positional command-line parameters
+- `named`: table containing named command-line parameters and switches
+- `positional`: sequence containing positional command-line parameters
 - `multi_positional`: string defining the name of a multi-positional argument
 
 The `named` table has the name of the options as its keys and a table
@@ -294,8 +307,8 @@ For example, if you want `readf` to handle `http` addresses, do the following:
   - `env_table`: table
   - `command`: string or table
 - Return:
-  - On success: boolean, number
-  - On failure: nil, string
+  - On success: boolean, number (error code)
+  - On failure: nil, string (error message)
 
 Runs processes. If `command` is a string, it will be parsed and executed.
 Otherwise, if it's a table, the first element of `command` will be the
