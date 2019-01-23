@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -99,8 +99,11 @@ int native_rmdir(const char *dir)
 }
 
 struct native_run_result native_run(
-    const char *executable, const char **exeargs, const char **envstrings)
+    const char *executable, const char **exeargs, const char **envstrings,
+    int background)
 {
+    // TODO implement run.bg
+
     char cmdline[1024];
     char env[4096];
     char *env_ptr = env;

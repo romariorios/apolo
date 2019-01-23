@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -32,6 +32,7 @@ enum native_err {
     NATIVE_ERR_NOTFOUND,
     NATIVE_ERR_PERMISSION,
 
+    NATIVE_ERR_BACKGROUND_SUCCESS,
     NATIVE_ERR_SUCCESS
 };
 
@@ -53,6 +54,7 @@ struct native_run_result
 };
 
 struct native_run_result native_run(
-    const char *executable, const char **exeargs, const char **envstrings);
+    const char *executable, const char **exeargs, const char **envstrings,
+    int background);
 
 #endif

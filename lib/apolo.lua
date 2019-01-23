@@ -1,4 +1,4 @@
--- Copyright (C) 2017, 2018 Luiz Romário Santana Rios
+-- Copyright (C) 2017--2019 Luiz Romário Santana Rios
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a
 -- copy of this software and associated documentation files (the "Software"),
@@ -531,14 +531,7 @@ end
 apolo.run = {}
 local apolo_run_mt = {}
 
-function apolo.run.env(env_table)
-    local new_run = {__env = env_table}
-    setmetatable(new_run, apolo_run_mt)
-
-    return new_run
-end
-
-function apolo_run_mt.__call(apolo_run, args)
+local function _apolo_run(apolo_run, args, background)
     if type(args) == 'string' then
         args = unstringfy_args(args)
     else
@@ -570,7 +563,26 @@ function apolo_run_mt.__call(apolo_run, args)
         end
     end
 
-    return apolo.core.run(executable, exeargs, envstrings)
+    return apolo.core.run(executable, exeargs, envstrings, background)
+end
+
+function apolo.run.env(env_table)
+    local new_run = {__env = env_table}
+    setmetatable(new_run, apolo_run_mt)
+
+    return new_run
+end
+
+function apolo.run.bg(args)
+    if apolo.core.osname == "win" then
+        io.stderr:write("WARN: Windows does not support running background processes")
+    end
+
+    return _apolo_run(apolo.run, args, true)
+end
+
+function apolo_run_mt.__call(apolo_run, args)
+    return _apolo_run(apolo_run, args, false)
 end
 
 setmetatable(apolo.run, apolo_run_mt)

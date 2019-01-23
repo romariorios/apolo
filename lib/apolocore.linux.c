@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -137,7 +137,8 @@ int native_rmdir(const char *dir)
 }
 
 struct native_run_result native_run(
-    const char *executable, const char **exeargs, const char **envstrings)
+    const char *executable, const char **exeargs, const char **envstrings,
+    int background)
 {
     const char **env = envstrings;
     char **parent_env = environ;
@@ -153,7 +154,8 @@ struct native_run_result native_run(
     int pipe_fd[2];
     int execvpe_errno = 0;
 
-    pipe(pipe_fd);
+    if (!background)	
+        pipe(pipe_fd);
 
     /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
@@ -163,8 +165,10 @@ struct native_run_result native_run(
     }
 
     if (fork_res != 0) {  /* We're the parent, return */
-        close(pipe_fd[1]);
-        read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
+        if (!background) {
+            close(pipe_fd[1]);
+            read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
+        }
 
         struct native_run_result res = {NATIVE_ERR_INVALID, 0};
         switch (execvpe_errno) {
@@ -180,6 +184,11 @@ struct native_run_result native_run(
             return res;
         }
 
+        if (background) {
+            res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+            return res;
+        }
+
         int exit_code;
         waitpid(fork_res, &exit_code, 0);
 
@@ -190,11 +199,13 @@ struct native_run_result native_run(
 
     execvpe(executable, exeargs, envstrings);  /* should never return */
 
-    /* If execvpe ever returns, an error occurred: */
-    close(pipe_fd[0]);
+    if (!background) {
+        /* If execvpe ever returns, an error occurred: */
+        close(pipe_fd[0]);
 
-    execvpe_errno = errno;
-    write(pipe_fd[1], &execvpe_errno, sizeof(execvpe_errno));
+        execvpe_errno = errno;
+        write(pipe_fd[1], &execvpe_errno, sizeof(execvpe_errno));
+    }
 
     exit(0);
 }

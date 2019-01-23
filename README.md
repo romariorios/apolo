@@ -301,7 +301,7 @@ For example, if you want `readf` to handle `http` addresses, do the following:
 
     local robots_txt = readf 'http://duckduckgo.com/robots.txt'
 
-### `apolo.run[.env(env_table)](command)`
+### `apolo.run[.bg][.env(env_table)](command)`
 
 - Arguments:
   - `env_table`: table
@@ -319,6 +319,8 @@ executable and all other elements will be the parameters:
     -- equivalent commands
     run 'ls -la "foo bar"'
     run{'ls', '-la', 'foo bar'}
+
+Executing the command as `run.bg` will spawn the process in the background.
 
 Executing the command as `run.env` will run the command with the current
 environment plus the variables defined in `env_table`:

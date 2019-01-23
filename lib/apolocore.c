@@ -172,10 +172,11 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 /* apolo.core.run(executable, exeargs, envstrings) */
 static int apolocore_run(lua_State *L)
 {
-    check_argc(3);
+    check_argc(4);
     check_arg_type(1, LUA_TSTRING);
     check_arg_type(2, LUA_TTABLE);
     check_arg_type(3, LUA_TTABLE);
+    check_arg_type(4, LUA_TBOOLEAN);
 
     {
         const char *executable = lua_tostring(L, 1);
@@ -190,7 +191,8 @@ static int apolocore_run(lua_State *L)
         /* Store env vars in an array */
         table_to_strarray(L, 3, envstrings);
 
-        res = native_run(executable, exeargs, envstrings);
+        res = native_run(
+            executable, exeargs, envstrings, lua_toboolean(L, 4));
 
         switch (res.tag) {
         case NATIVE_ERR_FORKFAILED:
@@ -203,6 +205,10 @@ static int apolocore_run(lua_State *L)
             lua_pushstring(L, "Command not found");
 
             return 2;
+        case NATIVE_ERR_BACKGROUND_SUCCESS:
+            lua_pushboolean(L, 1);
+
+            return 1;
         case NATIVE_ERR_SUCCESS:
             lua_pushboolean(L, res.exit_code == 0);
             lua_pushnumber(L, res.exit_code);
