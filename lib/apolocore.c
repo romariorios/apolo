@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -180,7 +180,7 @@ static int apolocore_run(lua_State *L)
     {
         const char *executable = lua_tostring(L, 1);
         const char *exeargs[32];
-        const char *envstrings[128];  /* Make room for parent environment */
+        const char *envstrings[512];  /* Make room for parent environment */
         struct native_run_result res;
 
         /* Store executable args in an array */
