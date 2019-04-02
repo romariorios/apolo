@@ -1,4 +1,4 @@
-/* Copyright (C) 2017, 2019 Luiz Rom·rio Santana Rios
+/* Copyright (C) 2017, 2019 Luiz Rom√°rio Santana Rios
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <windows.h>
+#include <shlwapi.h>
 
 const char *apolocore_os = "win";
 
@@ -30,10 +31,26 @@ int native_chdir(const char *dir)
 {
     return SetCurrentDirectory(dir) != 0;
 }
+static int append_filename_to_path(const char *orig, const char *dest, char* dest_ex)
+{
+    strcpy(dest_ex, dest); 
+    if(!PathIsFileSpec(orig) || !PathIsFileSpec(dest)) 
+        return 1;
+    if(PathIsDirectory(dest)) {
+        char *orig_filename = PathFindFileName(orig);
+        if(strlen(orig_filename) + strlen(dest) >= MAX_PATH)
+            return 0;
+        PathAppend(dest_ex, orig_filename);
+    }
+    return 1;
+}
 
 int native_copy(const char *orig, const char *dest)
 {
-    return CopyFile(orig, dest, FALSE) == TRUE;
+    char dest_ex[MAX_PATH];
+    if(!append_filename_to_path(orig, dest, dest_ex))
+        return 0;
+    return CopyFile(orig, dest_ex, FALSE) == TRUE;
 }
 
 void native_curdir(char *dir)
@@ -90,7 +107,10 @@ int native_mkdir(const char *dir)
 
 int native_move(const char *orig, const char *dest)
 {
-    return MoveFile(orig, dest) == TRUE;
+    char dest_ex[MAX_PATH];
+    if(!append_filename_to_path(orig, dest, dest_ex))
+        return 0;
+    return MoveFile(orig, dest_ex) == TRUE;
 }
 
 int native_rmdir(const char *dir)
