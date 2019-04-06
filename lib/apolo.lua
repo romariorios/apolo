@@ -327,12 +327,28 @@ end
 
 apolo.mkdir = apolo.core.mkdir
 
+local function merge_lists(...)
+    local result = {}
+    for _, l in ipairs{...} do
+        if l then
+            for _, e in ipairs(l) do
+                table.insert(result, e)
+            end
+        end
+    end
+
+    return result
+end        
+
 function apolo.parseopts(options)
     local named = options.named
     local positional = options.positional
     local multi_positional = options.multi_positional
     local pos_index = 1
     local results = {}
+
+    -- Flatten named switch and param names
+    local named_names = merge_lists(named.switches, named.params)
 
     -- TODO Deal with short options
 
@@ -353,7 +369,7 @@ function apolo.parseopts(options)
                 matches = {}
 
                 -- Collect matches for this prefix
-                for n, _ in pairs(named) do
+                for _, n in ipairs(named_names) do
                     local nprefix = string.sub(n, 1, i)
 
                     if prefix == nprefix then
@@ -394,20 +410,16 @@ function apolo.parseopts(options)
             local match = matches[1]
             results[match] = true
 
-            -- Get option parameters
-            local opt = named[match]
-            local opttype = opt.type
-
-            -- Type should be either switch or param
-            assert(opttype,  "Missing type for \"" .. match .. "\" option")
-            assert(
-                opttype == "switch" or opttype == "param",
-                "Type for \"" .. match ..
-                "\" should be either \"param\" or \"switch\" (got \"" ..
-                opttype .. "\")")
-
             -- If option is param, get parameter value
-            if opttype == "param" then
+            local match_is_param = false
+            for _, p in ipairs(named.params or {}) do
+                if match == p then
+                    match_is_param = true
+                    break
+                end
+            end
+
+            if match_is_param then
                 local error_str =
                     "Missing value for \"--" .. match .. "\" (" .. a .. ")"
                 local next_arg = arg[arg_index + 1]

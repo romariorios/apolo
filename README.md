@@ -239,10 +239,13 @@ following fields:
 - `positional`: sequence containing positional command-line parameters
 - `multi_positional`: string defining the name of a multi-positional argument
 
-The `named` table has the name of the options as its keys and a table
-with a single field named `type` that defines if the option is a `param` or a
-`switch` (a `param` expects a value next to it in the command-line, while a
-`switch` does not).
+The `named` table can have the following fields:
+
+- `switches`: sequence containing command-line switches
+- `params`: sequence contaning command-line params
+
+The difference between switches and params is that a `param` expects a value
+next to it in the command-line, while a `switch` does not.
 
 E.g.:
 
@@ -250,17 +253,15 @@ E.g.:
 
     local opts = parseopts{
         named = {
-            foo = {type = 'param'},
-            bar = {type = 'param'},
-            verbose = {type = 'switch'},
-            help = {type = 'switch'}
+            params = {'foo', 'bar'},
+            switches = {'verbose', 'help'}
         },
         positional = {'oof', 'rab'},
         multi_positional = 'files'
     }
 
-The table `parseopts` returns contains all parameters that were present in the
-command-line. Named switches will be attributed a `true` value if they were
+The table returned by `parseopts` contains all parameters that were present in
+the command-line. Named switches will be attributed a `true` value if they were
 present and `nil` otherwise; everything else will be assigned its value.
 
 E.g. (continued from the previous code snippet):

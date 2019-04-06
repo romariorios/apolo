@@ -3,11 +3,7 @@ require 'apolo':as_global()
 -- Test 1: normal switches
 local opts = {
     named = {
-        verbose = {type = "switch"},
-        version = {type = "switch"},
-        veritas = {type = "switch"},
-        apply = {type = "switch"},
-        append = {type = "switch"}
+        switches = {"verbose", "version", "veritas", "apply", "append"}
     }
 }
 
@@ -46,10 +42,8 @@ assert(optvals.append, "--append unavailable")
 -- Test 2: switches and named parameters
 local opts = {
     named = {
-        append = {type = "param"},
-        path = {type = "param"},
-        verbose = {type = "switch"},
-        version = {type = "switch"}
+        params = {"append", "path"},
+        switches = {"verbose", "version"}
     }
 }
 
@@ -77,9 +71,8 @@ assert(optvals.path == "hello", "Could not get value of --path")
 -- Test 3: Unary positional params
 local opts = {
     named = {
-        append = {type = "param"},
-        verbose = {type = "switch"},
-        version = {type = "switch"}
+        params = {"append"},
+        switches = {"verbose", "version"}
     },
     positional = {"foo", "bar", "baz"}
 }
