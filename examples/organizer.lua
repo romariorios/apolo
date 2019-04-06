@@ -25,13 +25,12 @@ local extensions = {
 }
 
 -- command line arguments
-local opts = parseopts{
+local opts = assert(parseopts{
     named = {
-        dir = { type = 'param' },
-        here = { type = 'switch' },
-        help = { type = 'switch' }
+        params = { 'dir' },
+        switches = { 'here', 'help' }
     }
-}
+})
 
 -- print help information
 if opts.help then

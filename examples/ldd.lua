@@ -11,12 +11,10 @@ local rtldlist = {
 
 local opts, parse_err = parseopts{
     named = {
-        version = {type = "switch"},
-        help = {type = "switch"},
-        ["data-relocs"] = {type = "switch"},
-        ["function-relocs"] = {type = "switch"},
-        verbose = {type = "switch"},
-        unused = {type = "switch"}
+        switches = {
+            "version", "help", "data-relocs", "function-relocs", "verbose",
+            "unused"
+        }
     },
     multi_positional = "files"
 }
