@@ -114,13 +114,13 @@ will be executed in `d` instead.
 ### `apolo.copy(orig, dest)`
 
 - Arguments:
-  - `orig`: path or sequence of paths
+  - `orig`: path or sequence of paths to file or directory
   - `dest`: path to directory
 - Return: boolean
 
 Copies `orig` to `dest`; returns `false` in case of an error. If `orig` is a
 sequence of files, `copy` will return `false` on the first error and will abort
-the copy.
+the copy. If `dest` does not exist, the `copy` will create it.
 
 ### `apolo.current()`
 
