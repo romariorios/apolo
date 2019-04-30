@@ -18,7 +18,6 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
    DEALINGS IN THE SOFTWARE.
 */
-
 #include "apolocore.h"
 
 #include <string.h>
@@ -45,12 +44,32 @@ static int append_filename_to_path(const char *orig, const char *dest, char* des
     return 1;
 }
 
-int native_copy(const char *orig, const char *dest)
-{
-    char dest_ex[MAX_PATH];
+static int native_file_operation(const char *orig, const char *dest, UINT operation) {
+    
+    char dest_ex[MAX_PATH] = "";
+    char orig_ex[MAX_PATH] = "";
+    strcpy(orig_ex, orig);
+    strcpy(dest_ex, dest);
     if(!append_filename_to_path(orig, dest, dest_ex))
         return 0;
-    return CopyFile(orig, dest_ex, FALSE) == TRUE;
+    strncat(dest_ex, "\0", MAX_PATH); strncat(orig_ex, "\0", MAX_PATH);
+    
+    SHFILEOPSTRUCT file_op = { 0 };
+    file_op.hwnd = 0;
+    file_op.wFunc = operation;
+    file_op.pFrom = orig_ex;
+    file_op.pTo = dest_ex;
+    file_op.fFlags = FOF_NOCONFIRMMKDIR |
+        FOF_NOCONFIRMATION |
+        FOF_NOERRORUI |
+        FOF_SILENT;
+
+    return SHFileOperation(&file_op) == 0;
+}
+
+int native_copy(const char *orig, const char *dest)
+{
+    return native_file_operation(orig, dest, FO_COPY);
 }
 
 void native_curdir(char *dir)
@@ -107,10 +126,7 @@ int native_mkdir(const char *dir)
 
 int native_move(const char *orig, const char *dest)
 {
-    char dest_ex[MAX_PATH];
-    if(!append_filename_to_path(orig, dest, dest_ex))
-        return 0;
-    return MoveFile(orig, dest_ex) == TRUE;
+    return native_file_operation(orig, dest, FO_MOVE);
 }
 
 int native_rmdir(const char *dir)
