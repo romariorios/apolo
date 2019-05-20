@@ -540,10 +540,7 @@ local function unstringfy_args(str)
     return args
 end
 
-apolo.run = {}
-local apolo_run_mt = {}
-
-local function _apolo_run(apolo_run, args, background)
+local function apolo_run_call(options, args)
     if type(args) == 'string' then
         args = unstringfy_args(args)
     else
@@ -560,7 +557,7 @@ local function _apolo_run(apolo_run, args, background)
     end
 
     local envstrings = {}
-    local exeenv = apolo_run.__env
+    local exeenv = options.env
     if exeenv then
         for name, val in pairs(exeenv) do
             -- Convert lua booleans to a more usual representation of booleans
@@ -575,29 +572,42 @@ local function _apolo_run(apolo_run, args, background)
         end
     end
 
-    return apolo.core.run(executable, exeargs, envstrings, background)
+    return apolo.core.run(executable, exeargs, envstrings, options.bg)
 end
 
-function apolo.run.env(env_table)
-    local new_run = {__env = env_table}
-    setmetatable(new_run, apolo_run_mt)
+local apolo_run_options = {bg = 'switch', env = 'param'}
 
-    return new_run
-end
+local function make_apolo_run(options)
+    local apolo_run = {}
+    local apolo_run_mt = {}
 
-function apolo.run.bg(args)
-    if apolo.core.osname == "win" then
-        io.stderr:write("WARN: Windows does not support running background processes")
+    function apolo_run_mt.__index(_, option)
+        local new_options = {}
+        for k, v in pairs(options) do new_options[k] = v end
+
+        local opttype = apolo_run_options[option]
+        if opttype == 'switch' then
+            new_options[option] = true
+            return make_apolo_run(new_options)
+        elseif opttype == 'param' then
+            return function(value)
+                new_options[option] = value
+                return make_apolo_run(new_options)
+            end
+        else
+            error('Unknown option "' .. option .. '"')
+        end
+    end
+    
+    function apolo_run_mt.__call(_, args)    
+        return apolo_run_call(options, args)
     end
 
-    return _apolo_run(apolo.run, args, true)
+    setmetatable(apolo_run, apolo_run_mt)
+    return apolo_run
 end
 
-function apolo_run_mt.__call(apolo_run, args)
-    return _apolo_run(apolo_run, args, false)
-end
-
-setmetatable(apolo.run, apolo_run_mt)
+apolo.run = make_apolo_run{bg = false}
 
 apolo.writef = {}
 
