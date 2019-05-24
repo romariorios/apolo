@@ -91,3 +91,18 @@ chdir.mk('envtests', function()
 
     assert(run{luacmd, 'check-env.lua'})
 end)
+
+chdir.mk('modifiertests', function()
+    writef(
+        'hello.lua',
+        [[
+            local f = io.open('hello', 'w')
+            f:write(os.getenv('HELLO'))
+            f:close()
+        ]])
+
+    run.bg.env{HELLO = 'hello'}{luacmd, 'hello.lua'}
+    run 'sleep 1'
+
+    assert(readf('hello'), 'hello')
+end)
