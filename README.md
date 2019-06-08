@@ -187,6 +187,42 @@ The following information is available:
 
 Returns `true` if `path` exists; `false` otherwise.
 
+### `apolo.eval[.env(env_table)](command)`
+
+- Arguments:
+  - `env_table`: table
+  - `command`: string or table
+- Return:
+  - string
+
+Runs processes and returns any output that would normally go to console.
+If `command` is a string, it will be parsed and executed. Otherwise, if
+it's a table, the first element of `command` will be the
+executable and all other elements will be the parameters:
+
+    require 'apolo':as_global()
+
+    -- equivalent commands
+    local file_contents = eval 'ls -la "foo bar"'
+    local file_contents = eval{'ls', '-la', 'foo bar'}
+
+Executing the command as `eval.env` will run the command with the current
+environment plus the variables defined in `env_table`:
+
+    local file_contents = eval.env{LC_ALL = 'en_US'} 'ls -la "foo bar"'
+
+It's also possible to store the return of `eval.env` and have a new `eval`-like
+function that will execute all commands in your defined custom environment:
+
+    local en_eval = eval.env{LC_ALL = 'en_US'}
+    local file_contents = en_eval 'ls -la "foo bar"'
+
+Eval returns the console output as a string when it's successful; otherwise, it
+returns `nil` followed by the error string. That way, the user can wrap any run
+call with `assert`:
+
+    local file_contents = assert(en_eval 'lls -la "foo bar"')  -- Error: Command not found
+
 ### `apolo.inspect(value)`
 
 - Arguments:

@@ -134,9 +134,9 @@ int native_rmdir(const char *dir)
     return RemoveDirectory(dir);
 }
 
-struct native_run_result native_run(
+struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    int background)
+    unsigned char background, unsigned char is_eval)
 {
     // TODO implement run.bg
 
@@ -147,10 +147,11 @@ struct native_run_result native_run(
     char *parent_env_ptr = parent_env;
     STARTUPINFO suinfo;
     PROCESS_INFORMATION pinfo;
+    HANDLE pipe_out_rd = NULL;
+    HANDLE pipe_out_wr = NULL;
 
     strcpy(cmdline, "\"");
     strcat(cmdline, executable);
-    strcat(cmdline, ".exe");
     strcat(cmdline, "\" ");
 
     ++exeargs;
@@ -180,12 +181,40 @@ struct native_run_result native_run(
     suinfo.cb = sizeof(suinfo);
 
     memset(&pinfo, 0, sizeof(pinfo));
+    
+    struct native_run_result res;
+
+    // Set up output pipe
+    if(is_eval) {
+        // Set the bInheritHandle flag so pipe handles are inherited. 
+        SECURITY_ATTRIBUTES sa; 
+        sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+        sa.bInheritHandle = TRUE; 
+        sa.lpSecurityDescriptor = NULL; 
+        
+        if (! CreatePipe(&pipe_out_rd, &pipe_out_wr, &sa, 0))
+        {
+            CloseHandle(pipe_out_wr);
+            CloseHandle(pipe_out_rd);
+            res.tag = NATIVE_ERR_PIPE_FAILED;
+            return res;
+        }
+        if(! SetHandleInformation(pipe_out_rd, HANDLE_FLAG_INHERIT, 0))
+        {
+            CloseHandle(pipe_out_wr);
+            CloseHandle(pipe_out_rd);
+            res.tag = NATIVE_ERR_PIPE_FAILED;
+            return res;
+        }
+
+        suinfo.cb = sizeof(STARTUPINFO);
+        suinfo.hStdOutput = pipe_out_wr;
+        suinfo.dwFlags |= STARTF_USESTDHANDLES;
+    }
 
     BOOL result = CreateProcess(
-        NULL, cmdline, NULL, NULL, FALSE, 0, env,
+        NULL, cmdline, NULL, NULL, (is_eval==1), 0, env,
         NULL, &suinfo, &pinfo);
-
-    struct native_run_result res;
 
     if (result == FALSE)
         switch (GetLastError()) {
@@ -197,6 +226,16 @@ struct native_run_result native_run(
         }
 
     WaitForSingleObject(pinfo.hProcess, INFINITE);
+
+    //Get output from process
+    if(is_eval) {
+        DWORD bytes_read;
+
+        CloseHandle(pipe_out_wr);
+        ReadFile( pipe_out_rd, res.out_string, EVAL_BUFFER_SIZE, &bytes_read, NULL);
+        res.out_string[bytes_read] = 0;
+        CloseHandle(pipe_out_rd);
+    }
 
     res.tag = NATIVE_ERR_SUCCESS;
     GetExitCodeProcess(pinfo.hProcess, (PDWORD) &res.exit_code);

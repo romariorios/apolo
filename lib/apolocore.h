@@ -22,6 +22,8 @@
 #ifndef APOLOCORE_H
 #define APOLOCORE_H
 
+#define EVAL_BUFFER_SIZE 1024
+
 #include <lua.h>
 
 enum native_err {
@@ -31,6 +33,8 @@ enum native_err {
     NATIVE_ERR_INUSE,
     NATIVE_ERR_NOTFOUND,
     NATIVE_ERR_PERMISSION,
+    NATIVE_ERR_PIPE_FAILED,
+    NATIVE_ERR_INTERRUPT,
 
     NATIVE_ERR_BACKGROUND_SUCCESS,
     NATIVE_ERR_SUCCESS
@@ -51,10 +55,11 @@ struct native_run_result
 {
     enum native_err tag;
     int exit_code;
+    char out_string[EVAL_BUFFER_SIZE];
 };
 
-struct native_run_result native_run(
+struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    int background);
+    unsigned char background, unsigned char is_eval);
 
 #endif

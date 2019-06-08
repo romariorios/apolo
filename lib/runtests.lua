@@ -8,12 +8,12 @@ elseif core.osname == 'win' then
     ps = '\\'
 end
 
-local testdir = '..' .. ps .. 'tests' .. ps
-local testlist = readf(testdir .. 'testlist')
+chdir('..' .. ps .. 'tests' .. ps)
+local testlist = readf('testlist')
 local matches = string.gmatch(testlist, '%S+')
 
 for t in matches do
     -- Run tests with lua executable
-    run{arg[-1], testdir .. t .. '.lua'}
+    run{arg[-1], t .. '.lua'}
 end
 

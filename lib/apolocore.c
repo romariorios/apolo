@@ -170,19 +170,21 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 }
 
 /* apolo.core.run(executable, exeargs, envstrings) */
-static int apolocore_run(lua_State *L)
+static int apolocore_execute(lua_State *L)
 {
-    check_argc(4);
+    check_argc(5);
     check_arg_type(1, LUA_TSTRING);
     check_arg_type(2, LUA_TTABLE);
     check_arg_type(3, LUA_TTABLE);
     check_arg_type(4, LUA_TBOOLEAN);
+    check_arg_type(5, LUA_TBOOLEAN);
 
     {
         const char *executable = lua_tostring(L, 1);
         const char *exeargs[32];
         const char *envstrings[512];  /* Make room for parent environment */
         struct native_run_result res;
+        unsigned char is_eval = lua_toboolean(L, 5);
 
         /* Store executable args in an array */
         exeargs[0] = executable;
@@ -191,8 +193,8 @@ static int apolocore_run(lua_State *L)
         /* Store env vars in an array */
         table_to_strarray(L, 3, envstrings);
 
-        res = native_run(
-            executable, exeargs, envstrings, lua_toboolean(L, 4));
+        res = native_execute(
+            executable, exeargs, envstrings, lua_toboolean(L, 4), is_eval);
 
         switch (res.tag) {
         case NATIVE_ERR_FORKFAILED:
@@ -205,15 +207,32 @@ static int apolocore_run(lua_State *L)
             lua_pushstring(L, "Command not found");
 
             return 2;
+        case NATIVE_ERR_PIPE_FAILED:
+            lua_pushnil(L);
+            lua_pushstring(L, "Pipe creation failed");
+
+            return 2;
+        case NATIVE_ERR_INTERRUPT:
+            lua_pushnil(L);
+            lua_pushstring(L, "Command interrupted before completion");
+
+            return 2;
         case NATIVE_ERR_BACKGROUND_SUCCESS:
             lua_pushboolean(L, 1);
 
             return 1;
         case NATIVE_ERR_SUCCESS:
-            lua_pushboolean(L, res.exit_code == 0);
-            lua_pushnumber(L, res.exit_code);
+            if(is_eval) {
+                lua_pushstring(L, res.out_string);
 
-            return 2;
+                return 1;
+            }
+            else {
+                lua_pushboolean(L, res.exit_code == 0);
+                lua_pushnumber(L, res.exit_code);
+
+                return 2;
+            }
         default:
             lua_pushnil(L);
             lua_pushstring(L, "Unknown error (most likely a bug in apolo)");
@@ -232,7 +251,7 @@ static const struct luaL_Reg apolocore[] = {
     {"mkdir", apolocore_mkdir},
     {"move", apolocore_move},
     {"rmdir", apolocore_rmdir},
-    {"run", apolocore_run},
+    {"execute", apolocore_execute},
     {NULL, NULL}
 };
 

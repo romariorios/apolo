@@ -540,7 +540,7 @@ local function unstringfy_args(str)
     return args
 end
 
-local function apolo_run_call(options, args)
+local function apolo_execute_call(options, args, is_eval)
     if type(args) == 'string' then
         args = unstringfy_args(args)
     else
@@ -572,42 +572,44 @@ local function apolo_run_call(options, args)
         end
     end
 
-    return apolo.core.run(executable, exeargs, envstrings, options.bg)
+    return apolo.core.execute(executable, exeargs, envstrings, options.bg, is_eval)
 end
 
-local apolo_run_options = {bg = 'switch', env = 'param'}
+local apolo_execute_options = {bg = 'switch', env = 'param'}
 
-local function make_apolo_run(options)
-    local apolo_run = {}
-    local apolo_run_mt = {}
+local function make_apolo_execute(options)
+    local apolo_execute = {}
+    local apolo_execute_mt = {}
 
-    function apolo_run_mt.__index(_, option)
+    function apolo_execute_mt.__index(_, option)
         local new_options = {}
         for k, v in pairs(options) do new_options[k] = v end
 
-        local opttype = apolo_run_options[option]
+        local opttype = apolo_execute_options[option]
         if opttype == 'switch' then
             new_options[option] = true
-            return make_apolo_run(new_options)
+            return make_apolo_execute(new_options)
         elseif opttype == 'param' then
             return function(value)
                 new_options[option] = value
-                return make_apolo_run(new_options)
+                return make_apolo_execute(new_options)
             end
         else
             error('Unknown option "' .. option .. '"')
         end
     end
     
-    function apolo_run_mt.__call(_, args)    
-        return apolo_run_call(options, args)
+    function apolo_execute_mt.__call(_, args)    
+        return apolo_execute_call(options, args, options['is_eval'])
     end
 
-    setmetatable(apolo_run, apolo_run_mt)
-    return apolo_run
+    setmetatable(apolo_execute, apolo_execute_mt)
+    return apolo_execute
 end
 
-apolo.run = make_apolo_run{bg = false}
+apolo.run = make_apolo_execute{ bg = false, is_eval = false }
+
+apolo.eval = make_apolo_execute{ bg = false, is_eval = true }
 
 apolo.writef = {}
 

@@ -136,9 +136,9 @@ int native_rmdir(const char *dir)
     return 0;
 }
 
-struct native_run_result native_run(
+struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    int background)
+    unsigned char background, unsigned char is_eval)
 {
     const char **env = envstrings;
     char **parent_env = environ;
@@ -152,10 +152,13 @@ struct native_run_result native_run(
 
     /* Create pipe to communicate execvpe failure in the child */
     int pipe_fd[2];
+    int pipe_output_fd[2];
     int execvpe_errno = 0;
 
     if (!background)	
         pipe(pipe_fd);
+    if(is_eval)
+        pipe(pipe_output_fd);
 
     /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
@@ -192,11 +195,37 @@ struct native_run_result native_run(
         int exit_code;
         waitpid(fork_res, &exit_code, 0);
 
+        //In eval, read the output of the process
+        if(is_eval) {
+            close(pipe_output_fd[1]);
+            //Read bytes
+            int num_bytes = read(pipe_output_fd[0] , res.out_string , EVAL_BUFFER_SIZE );
+            if(num_bytes >= 0)
+            {
+                res.out_string[num_bytes] = 0;
+            } else {
+                res.tag = NATIVE_ERR_INVALID;
+                execvpe_errno = errno;
+                switch (execvpe_errno) {
+                    case EINTR:
+                        res.tag = NATIVE_ERR_INTERRUPT;
+                        return res;
+                    default:
+                        return res;
+                }
+            }
+        }
+
         res.tag = NATIVE_ERR_SUCCESS;
         res.exit_code = WEXITSTATUS(exit_code);
         return res;
     }
-
+        
+    //If running eval, redirect STD output to pipe
+    if(is_eval) {
+        close(pipe_output_fd[0]);
+        dup2(pipe_output_fd[1], STDOUT_FILENO);
+    }
     execvpe(executable, exeargs, envstrings);  /* should never return */
 
     if (!background) {
