@@ -540,7 +540,7 @@ local function unstringfy_args(str)
     return args
 end
 
-local function apolo_execute_call(options, args, is_eval)
+local function apolo_execute_call(options, args)
     if type(args) == 'string' then
         args = unstringfy_args(args)
     else
@@ -572,7 +572,7 @@ local function apolo_execute_call(options, args, is_eval)
         end
     end
 
-    return apolo.core.execute(executable, exeargs, envstrings, options.bg, is_eval)
+    return apolo.core.execute(executable, exeargs, envstrings, options.bg, options.is_eval)
 end
 
 local apolo_execute_options = {bg = 'switch', env = 'param'}
@@ -600,7 +600,7 @@ local function make_apolo_execute(options)
     end
     
     function apolo_execute_mt.__call(_, args)    
-        return apolo_execute_call(options, args, options.is_eval)
+        return apolo_execute_call(options, args)
     end
 
     setmetatable(apolo_execute, apolo_execute_mt)

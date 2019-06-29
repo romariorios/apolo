@@ -40,6 +40,13 @@ enum native_err {
     NATIVE_ERR_SUCCESS
 };
 
+enum exec_opts_t {
+    EXEC_OPTS_INVALID = 0x0,
+    EXEC_OPTS_BG = 0x1,
+    EXEC_OPTS_EVAL = 0x2
+};
+
+
 void insert_direntry(lua_State *L, int index, const char *dirname, const char *type);
 
 int native_chdir(const char *dir);
@@ -60,6 +67,6 @@ struct native_run_result
 
 struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    unsigned char background, unsigned char is_eval);
+    enum exec_opts_t opts);
 
 #endif

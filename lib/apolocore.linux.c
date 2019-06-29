@@ -138,7 +138,7 @@ int native_rmdir(const char *dir)
 
 struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    unsigned char background, unsigned char is_eval)
+    enum exec_opts_t opts)
 {
     const char **env = envstrings;
     char **parent_env = environ;
@@ -155,9 +155,9 @@ struct native_run_result native_execute(
     int pipe_output_fd[2];
     int execvpe_errno = 0;
 
-    if (!background)	
+    if (!(opts & EXEC_OPTS_BG))	
         pipe(pipe_fd);
-    if(is_eval)
+    if(opts & EXEC_OPTS_EVAL)
         pipe(pipe_output_fd);
 
     /* Fork the process to avoid the script being replaced by execvp */
@@ -168,7 +168,7 @@ struct native_run_result native_execute(
     }
 
     if (fork_res != 0) {  /* We're the parent, return */
-        if (!background) {
+        if (!(opts & EXEC_OPTS_BG)) {
             close(pipe_fd[1]);
             read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
         }
@@ -187,7 +187,7 @@ struct native_run_result native_execute(
             return res;
         }
 
-        if (background) {
+        if (opts & EXEC_OPTS_BG) {
             res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
             return res;
         }
@@ -196,7 +196,7 @@ struct native_run_result native_execute(
         waitpid(fork_res, &exit_code, 0);
 
         //In eval, read the output of the process
-        if(is_eval) {
+        if(opts & EXEC_OPTS_EVAL) {
             close(pipe_output_fd[1]);
             //Read bytes
             int num_bytes = read(pipe_output_fd[0] , res.out_string , EVAL_BUFFER_SIZE );
@@ -222,13 +222,13 @@ struct native_run_result native_execute(
     }
         
     //If running eval, redirect STD output to pipe
-    if(is_eval) {
+    if(opts & EXEC_OPTS_EVAL) {
         close(pipe_output_fd[0]);
         dup2(pipe_output_fd[1], STDOUT_FILENO);
     }
     execvpe(executable, exeargs, envstrings);  /* should never return */
 
-    if (!background) {
+    if (!(opts & EXEC_OPTS_BG)) {
         /* If execvpe ever returns, an error occurred: */
         close(pipe_fd[0]);
 

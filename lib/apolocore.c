@@ -184,7 +184,6 @@ static int apolocore_execute(lua_State *L)
         const char *exeargs[32];
         const char *envstrings[512];  /* Make room for parent environment */
         struct native_run_result res;
-        unsigned char is_eval = lua_toboolean(L, 5);
 
         /* Store executable args in an array */
         exeargs[0] = executable;
@@ -193,8 +192,15 @@ static int apolocore_execute(lua_State *L)
         /* Store env vars in an array */
         table_to_strarray(L, 3, envstrings);
 
+        /* Set up opts */
+        enum exec_opts_t opts = EXEC_OPTS_INVALID;
+        if(lua_toboolean(L, 4))
+            opts  = opts | EXEC_OPTS_BG;
+        if(lua_toboolean(L, 5))
+            opts  = opts | EXEC_OPTS_EVAL;
+
         res = native_execute(
-            executable, exeargs, envstrings, lua_toboolean(L, 4), is_eval);
+            executable, exeargs, envstrings, opts);
 
         switch (res.tag) {
         case NATIVE_ERR_FORKFAILED:
@@ -222,7 +228,7 @@ static int apolocore_execute(lua_State *L)
 
             return 1;
         case NATIVE_ERR_SUCCESS:
-            if(is_eval) {
+            if(opts & EXEC_OPTS_EVAL) {
                 lua_pushstring(L, res.out_string);
 
                 return 1;

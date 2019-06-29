@@ -136,7 +136,7 @@ int native_rmdir(const char *dir)
 
 struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    unsigned char background, unsigned char is_eval)
+    enum exec_opts_t opts)
 {
     // TODO implement run.bg
 
@@ -185,7 +185,7 @@ struct native_run_result native_execute(
     struct native_run_result res;
 
     // Set up output pipe
-    if(is_eval) {
+    if(opts & EXEC_OPTS_EVAL) {
         // Set the bInheritHandle flag so pipe handles are inherited. 
         SECURITY_ATTRIBUTES sa; 
         sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
@@ -213,7 +213,7 @@ struct native_run_result native_execute(
     }
 
     BOOL result = CreateProcess(
-        NULL, cmdline, NULL, NULL, (is_eval==1), 0, env,
+        NULL, cmdline, NULL, NULL, ((opts & EXEC_OPTS_EVAL) != EXEC_OPTS_INVALID), 0, env,
         NULL, &suinfo, &pinfo);
 
     if (result == FALSE)
@@ -228,7 +228,7 @@ struct native_run_result native_execute(
     WaitForSingleObject(pinfo.hProcess, INFINITE);
 
     //Get output from process
-    if(is_eval) {
+    if(opts & EXEC_OPTS_EVAL) {
         DWORD bytes_read;
 
         CloseHandle(pipe_out_wr);
