@@ -600,7 +600,7 @@ local function make_apolo_execute(options)
     end
     
     function apolo_execute_mt.__call(_, args)    
-        return apolo_execute_call(options, args, options['is_eval'])
+        return apolo_execute_call(options, args, options.is_eval)
     end
 
     setmetatable(apolo_execute, apolo_execute_mt)
