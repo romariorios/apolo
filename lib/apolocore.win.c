@@ -24,7 +24,22 @@
 #include <windows.h>
 #include <shlwapi.h>
 
+#include <stdio.h>
+
 const char *apolocore_os = "win";
+
+struct native_windows_run_result
+{
+    enum native_err tag;
+    int exit_code;
+    char out_string[EVAL_BUFFER_SIZE];
+
+    void *write_handle;
+    void *read_handle;
+    void *final_process;
+
+    char padding[32 - 3*sizeof(void*)];
+};
 
 int native_chdir(const char *dir)
 {
@@ -134,30 +149,63 @@ int native_rmdir(const char *dir)
     return RemoveDirectory(dir);
 }
 
-struct native_run_result native_execute(
-    const char *executable, const char **exeargs, const char **envstrings,
-    enum exec_opts_t opts)
+void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc)
 {
-    // TODO implement run.bg
+    struct native_windows_run_result *res = (struct native_windows_run_result*) proc;
+
+    //Prepare the eval pipe
+    HANDLE write_handle, pipe_eval_rd;
+    if(opts & EXEC_OPTS_EVAL) {
+        SECURITY_ATTRIBUTES sa;
+        sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+        sa.bInheritHandle = TRUE; 
+        sa.lpSecurityDescriptor = NULL;
+        
+        if (! CreatePipe(&pipe_eval_rd, &write_handle, &sa, 0))
+        {
+            CloseHandle(write_handle);
+            CloseHandle(pipe_eval_rd);
+            res->tag = NATIVE_ERR_PIPE_FAILED;
+            return;
+        }
+        if(! SetHandleInformation(pipe_eval_rd, HANDLE_FLAG_INHERIT, 0))
+        {
+            CloseHandle(write_handle);
+            CloseHandle(pipe_eval_rd);
+            res->tag = NATIVE_ERR_PIPE_FAILED;
+            return;
+        }
+    } else {
+        write_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    }
+
+    res->write_handle = write_handle;
+    res->read_handle = pipe_eval_rd;
+    res->final_process = NULL;
+    res->tag = NATIVE_ERR_PROCESS_RUNNING;
+    return;
+}
+
+// Returning pipe_fail error from execute_in_pipe
+void native_execute(
+    const char *executable, const char **exeargs, const char **envstrings,
+    enum exec_opts_t opts, struct native_run_result *prev_proc, int index, const char *source_file)
+{
 
     char cmdline[1024];
     char env[4096];
     char *env_ptr = env;
     char *parent_env = GetEnvironmentStrings();
     char *parent_env_ptr = parent_env;
-    STARTUPINFO suinfo;
-    PROCESS_INFORMATION pinfo;
-    HANDLE pipe_out_rd = NULL;
-    HANDLE pipe_out_wr = NULL;
 
+    cmdline[0] = '\0';
     strcpy(cmdline, "\"");
     strcat(cmdline, executable);
     strcat(cmdline, "\" ");
 
-    ++exeargs;
-    for (; *exeargs != NULL; ++exeargs) {
+    for (int i=1; exeargs[i] != NULL && i<32; i++) {
         strcat(cmdline, "\"");
-        strcat(cmdline, *exeargs);
+        strcat(cmdline, exeargs[i]);
         strcat(cmdline, "\" ");
     }
 
@@ -177,68 +225,91 @@ struct native_run_result native_execute(
 
     FreeEnvironmentStrings(parent_env);
 
+    //Carry on final_process and read_handle from previous process
+    struct native_windows_run_result *res = (struct native_windows_run_result*) prev_proc;
+    
+    //Create new startup info
+    STARTUPINFO suinfo;
     memset(&suinfo, 0, sizeof(suinfo));
     suinfo.cb = sizeof(suinfo);
+    suinfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
-    memset(&pinfo, 0, sizeof(pinfo));
+    //Make pipe
+    HANDLE pipe_out_rd, pipe_out_wr;
+    SECURITY_ATTRIBUTES sa; 
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+    sa.bInheritHandle = TRUE; 
+    sa.lpSecurityDescriptor = NULL; 
     
-    struct native_run_result res;
-
-    // Set up output pipe
-    if(opts & EXEC_OPTS_EVAL) {
-        // Set the bInheritHandle flag so pipe handles are inherited. 
-        SECURITY_ATTRIBUTES sa; 
-        sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
-        sa.bInheritHandle = TRUE; 
-        sa.lpSecurityDescriptor = NULL; 
-        
+    if(index > 0) {
         if (! CreatePipe(&pipe_out_rd, &pipe_out_wr, &sa, 0))
         {
             CloseHandle(pipe_out_wr);
             CloseHandle(pipe_out_rd);
-            res.tag = NATIVE_ERR_PIPE_FAILED;
-            return res;
+            res->tag = NATIVE_ERR_PIPE_FAILED;
+            return;
         }
-        if(! SetHandleInformation(pipe_out_rd, HANDLE_FLAG_INHERIT, 0))
-        {
-            CloseHandle(pipe_out_wr);
-            CloseHandle(pipe_out_rd);
-            res.tag = NATIVE_ERR_PIPE_FAILED;
-            return res;
-        }
-
-        suinfo.cb = sizeof(STARTUPINFO);
-        suinfo.hStdOutput = pipe_out_wr;
-        suinfo.dwFlags |= STARTF_USESTDHANDLES;
+    }
+    else {
+        //Until io_redirection, source_file has no use
+        pipe_out_rd = GetStdHandle(STD_INPUT_HANDLE);
     }
 
-    BOOL result = CreateProcess(
-        NULL, cmdline, NULL, NULL, ((opts & EXEC_OPTS_EVAL) != EXEC_OPTS_INVALID), 0, env,
-        NULL, &suinfo, &pinfo);
+    suinfo.hStdOutput = res->write_handle;
+    suinfo.hStdInput = pipe_out_rd;
+    suinfo.dwFlags = STARTF_USESTDHANDLES;
 
-    if (result == FALSE)
+    //Create new process info
+    PROCESS_INFORMATION pinfo;
+    //Return whether creating process succeeds
+    if(!CreateProcess(NULL, cmdline, NULL, NULL,
+        TRUE, 0, env, NULL, &suinfo, &pinfo))
+    {
         switch (GetLastError()) {
         case ERROR_FILE_NOT_FOUND:
-            res.tag = NATIVE_ERR_NOTFOUND;
-            return res;
+            res->tag = NATIVE_ERR_NOTFOUND;
+            return;
         default:
-            return res;
+            return;
         }
-
-    WaitForSingleObject(pinfo.hProcess, INFINITE);
-
-    //Get output from process
-    if(opts & EXEC_OPTS_EVAL) {
-        DWORD bytes_read;
-
-        CloseHandle(pipe_out_wr);
-        ReadFile( pipe_out_rd, res.out_string, EVAL_BUFFER_SIZE, &bytes_read, NULL);
-        res.out_string[bytes_read] = 0;
-        CloseHandle(pipe_out_rd);
     }
 
-    res.tag = NATIVE_ERR_SUCCESS;
-    GetExitCodeProcess(pinfo.hProcess, (PDWORD) &res.exit_code);
+    CloseHandle(pinfo.hThread);
 
-    return res;
+    res->write_handle = pipe_out_wr;
+    // If no final process has been set, that means THIS is the final process
+    if(res->final_process == NULL) {
+        res->final_process = pinfo.hProcess;
+    }
+
+    return;
+}
+
+void native_execute_begin(struct native_run_result *proc,
+    enum exec_opts_t opts)
+{
+    struct native_windows_run_result *res = (struct native_windows_run_result*) proc;
+
+    if(!(opts & EXEC_OPTS_BG)) {
+        WaitForSingleObject(res->final_process, INFINITE);
+        res->tag = NATIVE_ERR_SUCCESS;
+        res->exit_code = 0;
+
+        //Get output from process
+        if(opts & EXEC_OPTS_EVAL) {
+            DWORD bytes_read;
+            //CloseHandle(pipe_eval_wr);
+            ReadFile(res->read_handle, res->out_string, EVAL_BUFFER_SIZE, &bytes_read, NULL);
+            res->out_string[bytes_read] = 0;
+            CloseHandle(res->read_handle);
+        }
+
+        //Get exit code from hProcess of last process
+        GetExitCodeProcess(res->final_process, (PDWORD) &res->exit_code);
+        CloseHandle(res->final_process);
+    } else {
+        res->tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+    }
+
+    return;
 }

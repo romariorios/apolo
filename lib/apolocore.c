@@ -19,6 +19,8 @@
    DEALINGS IN THE SOFTWARE.
 */
 
+#define MAX_PIPE_LENGTH 32
+
 /* Lua includes */
 #include <lua.h>
 #include <lualib.h>
@@ -155,6 +157,9 @@ static int apolocore_rmdir(lua_State *L)
 static void table_to_strarray(lua_State *L, int index, const char **strarray)
 {
     int i = 0;
+    //Negative indices won't count the nil being added, so decrease to compensate
+    if(index < 0)
+        index--;
 
     lua_pushnil(L);
     while (lua_next(L, index) != 0) {
@@ -169,40 +174,71 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
     strarray[i] = NULL;
 }
 
-/* apolo.core.run(executable, exeargs, envstrings) */
+/* apolo.core.run(exe_commands, envstrings, is_background, is_eval, pipe_length) */
 static int apolocore_execute(lua_State *L)
 {
     check_argc(5);
-    check_arg_type(1, LUA_TSTRING);
+    check_arg_type(1, LUA_TTABLE);
     check_arg_type(2, LUA_TTABLE);
-    check_arg_type(3, LUA_TTABLE);
+    check_arg_type(3, LUA_TBOOLEAN);
     check_arg_type(4, LUA_TBOOLEAN);
-    check_arg_type(5, LUA_TBOOLEAN);
+    check_arg_type(5, LUA_TNUMBER);
 
     {
-        const char *executable = lua_tostring(L, 1);
-        const char *exeargs[32];
+        int len = lua_tonumber(L, 5);
+        const char *executable[MAX_PIPE_LENGTH];
+        const char *exeargs[MAX_PIPE_LENGTH][32];
         const char *envstrings[512];  /* Make room for parent environment */
-        struct native_run_result res;
 
-        /* Store executable args in an array */
-        exeargs[0] = executable;
-        table_to_strarray(L, 2, &exeargs[1]);
+        /* Build executable and exeargs for each table in the table at parameter 1 */
+        lua_pushvalue(L, 1);
+        lua_pushnil(L);
+        while (lua_next(L, -2) != 0)
+        {
+            // copy the key so that lua_tostring does not modify the original
+            lua_pushvalue(L, -2);
+            const int key = (int) lua_tonumber(L, -1) - 1;
+            // Populate exeargs with inner table
+            table_to_strarray(L, -2, exeargs[key]);
+
+            // Read first value of inner table for executable
+            lua_pushnil(L);
+            lua_next(L, -3);
+
+            executable[key] = lua_tostring(L, -1);
+
+            // pop value + copy of key, leaving original key
+            lua_pop(L, 4);
+        }
+        // Pop table
+        lua_pop(L, 2);
 
         /* Store env vars in an array */
-        table_to_strarray(L, 3, envstrings);
+        table_to_strarray(L, 2, envstrings);
 
         /* Set up opts */
         enum exec_opts_t opts = EXEC_OPTS_INVALID;
-        if(lua_toboolean(L, 4))
+        if (lua_toboolean(L, 3))
             opts  = opts | EXEC_OPTS_BG;
-        if(lua_toboolean(L, 5))
+        if (lua_toboolean(L, 4))
             opts  = opts | EXEC_OPTS_EVAL;
 
-        res = native_execute(
-            executable, exeargs, envstrings, opts);
+        struct native_run_result proc;
+        native_setup_proc_out(opts, &proc);
+        if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
+            for ( int pipe=len-1; pipe >= 0; pipe--)
+            {
+                if (proc.tag != NATIVE_ERR_PROCESS_RUNNING) {
+                    break;
+                }
+                native_execute(executable[pipe], exeargs[pipe], envstrings, opts, &proc, pipe, NULL);
+            }
+            if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
+                native_execute_begin(&proc, opts);
+            }
+        }
 
-        switch (res.tag) {
+        switch (proc.tag) {
         case NATIVE_ERR_FORKFAILED:
             lua_pushnil(L);
             lua_pushstring(L, "Failed to fork");
@@ -229,13 +265,13 @@ static int apolocore_execute(lua_State *L)
             return 1;
         case NATIVE_ERR_SUCCESS:
             if(opts & EXEC_OPTS_EVAL) {
-                lua_pushstring(L, res.out_string);
+                lua_pushstring(L, proc.out_string);
 
                 return 1;
             }
             else {
-                lua_pushboolean(L, res.exit_code == 0);
-                lua_pushnumber(L, res.exit_code);
+                lua_pushboolean(L, proc.exit_code == 0);
+                lua_pushnumber(L, proc.exit_code);
 
                 return 2;
             }

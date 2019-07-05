@@ -187,11 +187,12 @@ The following information is available:
 
 Returns `true` if `path` exists; `false` otherwise.
 
-### `apolo.eval[.env(env_table)](command)`
+### `apolo.eval[.env(env_table)][.pipe](command, ...)`
 
 - Arguments:
   - `env_table`: table
   - `command`: string or table
+  - `...`: Many strings or tables, representing commands piped together
 - Return:
   - string
 
@@ -217,8 +218,12 @@ function that will execute all commands in your defined custom environment:
     local en_eval = eval.env{LC_ALL = 'en_US'}
     local file_contents = en_eval 'ls -la "foo bar"'
 
-Eval returns the console output as a string when it's successful; otherwise, it
-returns `nil` followed by the error string. That way, the user can wrap any run
+Executing the command as `eval.pipe` will accept many commands into the function's
+arguments, which will be piped into each other similar to a bash script. For more details,
+check the documentation for `run`.
+
+Eval returns the console output as a string when it's successful. Otherwise, it
+returns `nil` followed by the error string. This way, the user can wrap any run
 call with `assert`:
 
     local file_contents = assert(en_eval 'lls -la "foo bar"')  -- Error: Command not found
@@ -338,11 +343,12 @@ For example, if you want `readf` to handle `http` addresses, do the following:
 
     local robots_txt = readf 'http://duckduckgo.com/robots.txt'
 
-### `apolo.run[.bg][.env(env_table)](command)`
+### `apolo.run[.bg][.pipe][.env(env_table)](command, ...)`
 
 - Arguments:
   - `env_table`: table
   - `command`: string or table
+  - `...`: Many strings or tables, representing commands piped together
 - Return:
   - On success: boolean, number (error code)
   - On failure: nil, string (error message)
@@ -370,8 +376,17 @@ function that will execute all commands in your defined custom environment:
     local en_run = run.env{LC_ALL = 'en_US'}
     en_run 'ls -la "foo bar"'
 
-It returns `true` followed by the exit code when it's successful; otherwise,
-it returns `nil` followed by the error string. That way, the user can wrap
+Executing the command as `run.pipe` will accept many commands into the function's
+arguments, which will be piped into each other similar to a bash script:
+
+    run.pipe('ls -l', 'grep .txt', 'sort')
+
+Similarly, the commands can be tables of arguments:
+
+    run.pipe({'ls', '-l'}, 'grep .txt', {'sort'})
+
+Run returns `true` followed by the exit code when it's successful; otherwise,
+it returns `nil` followed by the error string. This way, the user can wrap
 any run call with `assert`:
 
     assert(en_run 'lls -la "foo bar"')  -- Error: Command not found

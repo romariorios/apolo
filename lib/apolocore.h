@@ -37,6 +37,7 @@ enum native_err {
     NATIVE_ERR_INTERRUPT,
 
     NATIVE_ERR_BACKGROUND_SUCCESS,
+    NATIVE_ERR_PROCESS_RUNNING,
     NATIVE_ERR_SUCCESS
 };
 
@@ -63,10 +64,17 @@ struct native_run_result
     enum native_err tag;
     int exit_code;
     char out_string[EVAL_BUFFER_SIZE];
+    
+    char pipe_reference[32];
 };
 
-struct native_run_result native_execute(
+void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc);
+
+void native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
+    enum exec_opts_t opts, struct native_run_result *prev_proc, int index, const char *source_file);
+
+void native_execute_begin(struct native_run_result *proc,
     enum exec_opts_t opts);
 
 #endif

@@ -38,6 +38,20 @@ extern char **environ;
 
 const char *apolocore_os = "linux";
 
+struct native_linux_run_result
+{
+    enum native_err tag;
+    int exit_code;
+    char out_string[EVAL_BUFFER_SIZE];
+
+    int write_fd;
+    int input_fd;
+    int eval_pipe_fd;
+    int err_pipe_fd;
+
+    char padding[32 - 4*sizeof(int)];
+};
+
 int native_chdir(const char *dir)
 {
     // chdir failed if return is -1
@@ -136,10 +150,105 @@ int native_rmdir(const char *dir)
     return 0;
 }
 
-struct native_run_result native_execute(
-    const char *executable, const char **exeargs, const char **envstrings,
-    enum exec_opts_t opts)
+void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc)
 {
+    struct native_linux_run_result *res = (struct native_linux_run_result*) proc;
+    res->tag = NATIVE_ERR_SUCCESS;
+
+    int err_pipe_fd[2]; int eval_pipe_fd[2];
+    /* Create pipe to communicate execvpe failure in the child */
+    if (!(opts & EXEC_OPTS_BG))
+        pipe(err_pipe_fd);
+    
+    if(opts & EXEC_OPTS_EVAL)
+        pipe(eval_pipe_fd);
+    else
+        res->write_fd = STDOUT_FILENO;
+
+    //Create process that reads and prepares output
+    pid_t fork_res = fork();
+    if (fork_res < 0) {
+        res->tag = NATIVE_ERR_FORKFAILED;
+        return;
+    }
+
+    if(fork_res != 0) {
+
+        if(!(opts & EXEC_OPTS_BG)) {
+            int execvpe_errno = 0;
+            close(err_pipe_fd[1]);
+            read(err_pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
+
+            switch (execvpe_errno) {
+            case 0:  // success
+                break;
+            case ENOMEM: case EAGAIN: case ENOSYS:
+                res->tag = NATIVE_ERR_FORKFAILED;
+                return;
+            case ENOENT:
+                res->tag = NATIVE_ERR_NOTFOUND;
+                return;
+            // TODO treat other exec errors
+            default:
+                return;
+            }
+
+            int exit_code;
+            waitpid(fork_res, &exit_code, 0);
+
+            //Get output from process
+            if(opts & EXEC_OPTS_EVAL) {
+                close(eval_pipe_fd[1]);
+                //Read bytes
+                int num_bytes = read(eval_pipe_fd[0] , res->out_string , EVAL_BUFFER_SIZE );
+                if(num_bytes >= 0)
+                {
+                    res->out_string[num_bytes] = 0;
+                }
+                else {
+                    res->tag = NATIVE_ERR_INVALID;
+                    execvpe_errno = errno;
+                    switch (execvpe_errno) {
+                    case EINTR:
+                        res->tag = NATIVE_ERR_INTERRUPT;
+                        return;
+                    default:
+                        return;
+                    }
+                }
+            }
+
+            //Get exit code from last process
+            res->tag = NATIVE_ERR_SUCCESS;
+            res->exit_code = WEXITSTATUS(exit_code);
+
+            //Return output from here to preserve variables declared in this scope
+            return;
+        } else {
+            res->tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+            return;
+        }
+    }
+
+    // We're the child. Prepare to start processes
+    if (!(opts & EXEC_OPTS_BG)) {
+        close(err_pipe_fd[0]);
+        res->err_pipe_fd = err_pipe_fd[1];
+    }
+    if(opts & EXEC_OPTS_EVAL) {
+        close(eval_pipe_fd[0]);
+        res->write_fd = eval_pipe_fd[1];
+    }
+    res->tag = NATIVE_ERR_PROCESS_RUNNING;
+
+    return;
+}
+
+void native_execute(
+    const char *executable, const char **exeargs, const char **envstrings,
+    enum exec_opts_t opts, struct native_run_result *prev_proc, int index, const char *source_file)
+{
+    /* Execute setup run at beginning of recursive run */
     const char **env = envstrings;
     char **parent_env = environ;
 
@@ -150,91 +259,58 @@ struct native_run_result native_execute(
         *env = *parent_env;
     *env = NULL;
 
-    /* Create pipe to communicate execvpe failure in the child */
-    int pipe_fd[2];
-    int pipe_output_fd[2];
-    int execvpe_errno = 0;
+    //Carry on final_process and read_handle from previous process
+    struct native_linux_run_result *res = (struct native_linux_run_result*) prev_proc;
 
-    if (!(opts & EXEC_OPTS_BG))	
-        pipe(pipe_fd);
-    if(opts & EXEC_OPTS_EVAL)
-        pipe(pipe_output_fd);
+    //Make pipe
+    int new_pipe[2];
+    pipe(new_pipe);
 
-    /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
     if (fork_res < 0) {
-        struct native_run_result res = {NATIVE_ERR_FORKFAILED, 0};
-        return res;
-    }
-
-    if (fork_res != 0) {  /* We're the parent, return */
-        if (!(opts & EXEC_OPTS_BG)) {
-            close(pipe_fd[1]);
-            read(pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
-        }
-
-        struct native_run_result res = {NATIVE_ERR_INVALID, 0};
-        switch (execvpe_errno) {
-        case 0:  // success
-            break;
-        case ENOENT:
-            res.tag = NATIVE_ERR_NOTFOUND;
-            return res;
-
-        // TODO treat other exec errors
-
-        default:
-            return res;
-        }
-
-        if (opts & EXEC_OPTS_BG) {
-            res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
-            return res;
-        }
-
-        int exit_code;
-        waitpid(fork_res, &exit_code, 0);
-
-        //In eval, read the output of the process
-        if(opts & EXEC_OPTS_EVAL) {
-            close(pipe_output_fd[1]);
-            //Read bytes
-            int num_bytes = read(pipe_output_fd[0] , res.out_string , EVAL_BUFFER_SIZE );
-            if(num_bytes >= 0)
-            {
-                res.out_string[num_bytes] = 0;
-            } else {
-                res.tag = NATIVE_ERR_INVALID;
-                execvpe_errno = errno;
-                switch (execvpe_errno) {
-                    case EINTR:
-                        res.tag = NATIVE_ERR_INTERRUPT;
-                        return res;
-                    default:
-                        return res;
-                }
-            }
-        }
-
-        res.tag = NATIVE_ERR_SUCCESS;
-        res.exit_code = WEXITSTATUS(exit_code);
-        return res;
-    }
-        
-    //If running eval, redirect STD output to pipe
-    if(opts & EXEC_OPTS_EVAL) {
-        close(pipe_output_fd[0]);
-        dup2(pipe_output_fd[1], STDOUT_FILENO);
-    }
-    execvpe(executable, exeargs, envstrings);  /* should never return */
-
-    if (!(opts & EXEC_OPTS_BG)) {
-        /* If execvpe ever returns, an error occurred: */
-        close(pipe_fd[0]);
-
+        int execvpe_errno = 0;
         execvpe_errno = errno;
-        write(pipe_fd[1], &execvpe_errno, sizeof(execvpe_errno));
+        //Errors in execute_pipe need to message the proc_out listener to clean up run execution
+        write(res->err_pipe_fd, &execvpe_errno, sizeof(execvpe_errno));
+        exit(0);
     }
 
+    //Fork into two processes
+    if(fork_res != 0) {
+        //We're the parent. Start new process
+        dup2(res->write_fd, STDOUT_FILENO);
+
+        //Pipe to next process this is NOT the last process
+        if(index > 0) {
+            close(new_pipe[1]);
+            dup2(new_pipe[0], STDIN_FILENO);
+        }
+        else {
+            //If there is some io redirection here, do it!
+            //dup2(source_file, STDOUT_FILENO);
+        }
+
+        //Start process
+        execvpe(executable, exeargs, envstrings);  /* should never return */
+
+        if (!(opts & EXEC_OPTS_BG)) {
+            // If execvpe ever returns, an error occurred:
+            int execvpe_errno = 0;
+            execvpe_errno = errno;
+            write(res->err_pipe_fd, &execvpe_errno, sizeof(execvpe_errno));
+        }
+
+        exit(0);
+    } else {
+        close(new_pipe[0]);
+        res->write_fd = new_pipe[1];
+
+        return;
+    }
+}
+
+void native_execute_begin(struct native_run_result *proc,
+    enum exec_opts_t opts)
+{
     exit(0);
 }

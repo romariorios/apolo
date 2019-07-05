@@ -540,20 +540,59 @@ local function unstringfy_args(str)
     return args
 end
 
-local function apolo_execute_call(options, args)
-    if type(args) == 'string' then
-        args = unstringfy_args(args)
-    else
-        assert(
-            type(args) == 'table',
-            'Expecting either string or table as run argument')
+local function make_apolo_command(options, option_types, call)
+    local apolo_command = {}
+    local apolo_command_mt = {}
+
+    function apolo_command_mt.__index(_, option)
+        local new_options = {}
+        for k, v in pairs(options) do new_options[k] = v end
+
+        local opttype = option_types[option]
+        if opttype == 'switch' then
+            new_options[option] = true
+            return make_apolo_command(new_options, option_types, call)
+        elseif opttype == 'param' then
+            return function(value)
+                new_options[option] = value
+                return make_apolo_command(new_options, option_types, call)
+            end
+        else
+            error('Unknown option "' .. option .. '"')
+        end
+    end
+    
+    function apolo_command_mt.__call(_, ...)
+        return call(options, {...})
     end
 
-    local executable = args[1]
-    local exeargs = {}
+    setmetatable(apolo_command, apolo_command_mt)
+    return apolo_command
+end
 
-    for i = 2, #args do
-        table.insert(exeargs, args[i])
+local function apolo_execute_call(options, args)
+    assert(options.pipe or #args == 1, "Non-piped run commands must have only one command. "
+        .. "Did you remember to encapsulate the command into a table?")
+    assert(not options.pipe or #args > 1, "Piped run commands must have more than one command. "
+        .. "Did you accidentally encapsulate all the commands in a table?")
+    assert(#args < 32, "Maxed out pipe length. run.pipe has a limit of 32 processes")
+
+    local exec_commands = {}
+
+    -- Build exe commands by combining the executable and the args
+    for _, val in ipairs(args) do
+        local arg_table = {}
+    
+        if type(val) == 'string' then
+            arg_table = unstringfy_args(val)
+        else
+            assert(
+                type(val) == 'table',
+                'Expecting either string or table as run argument')
+            arg_table = val
+        end
+        
+        table.insert(exec_commands, arg_table)
     end
 
     local envstrings = {}
@@ -572,44 +611,12 @@ local function apolo_execute_call(options, args)
         end
     end
 
-    return apolo.core.execute(executable, exeargs, envstrings, options.bg, options.is_eval)
+    return apolo.core.execute(exec_commands, envstrings, options.bg, options.is_eval, #exec_commands)
 end
 
-local apolo_execute_options = {bg = 'switch', env = 'param'}
-
-local function make_apolo_execute(options)
-    local apolo_execute = {}
-    local apolo_execute_mt = {}
-
-    function apolo_execute_mt.__index(_, option)
-        local new_options = {}
-        for k, v in pairs(options) do new_options[k] = v end
-
-        local opttype = apolo_execute_options[option]
-        if opttype == 'switch' then
-            new_options[option] = true
-            return make_apolo_execute(new_options)
-        elseif opttype == 'param' then
-            return function(value)
-                new_options[option] = value
-                return make_apolo_execute(new_options)
-            end
-        else
-            error('Unknown option "' .. option .. '"')
-        end
-    end
-    
-    function apolo_execute_mt.__call(_, args)    
-        return apolo_execute_call(options, args)
-    end
-
-    setmetatable(apolo_execute, apolo_execute_mt)
-    return apolo_execute
-end
-
-apolo.run = make_apolo_execute{ bg = false, is_eval = false }
-
-apolo.eval = make_apolo_execute{ bg = false, is_eval = true }
+local apolo_run_options = {bg = 'switch', env = 'param', pipe = 'switch'}
+apolo.run = make_apolo_command({bg = false, is_eval = false}, apolo_run_options, apolo_execute_call)
+apolo.eval = make_apolo_command({bg = false, is_eval = true}, apolo_run_options, apolo_execute_call)
 
 apolo.writef = {}
 
