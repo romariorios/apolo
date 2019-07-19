@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -136,23 +137,112 @@ int native_rmdir(const char *dir)
     return 0;
 }
 
-struct native_run_result native_setup_proc_out(enum exec_opts_t opts)
+#define close_files(out_file, err_file) \
+{\
+    if(err_file)\
+        close(err_file);\
+    if(out_file)\
+        close(out_file);\
+}
+
+struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
+    const char *target_file, const char *err_target_file)
 {
     struct native_run_result res;
     res.tag = NATIVE_ERR_SUCCESS;
 
-    int err_pipe_fd[2]; int eval_pipe_fd[2];
+    // Open files before fork so that they can be closed in parent process
+    int eval_pipe_fd[2]; int out_target; int out_file = 0;
+    
+    if (opts & EXEC_OPTS_EVAL) {
+        pipe(eval_pipe_fd);
+    } else if (target_file) {
+        if (!(opts & EXEC_OPTS_EVAL)) {
+            
+            if (opts & EXEC_OPTS_APPEND_TO)
+                out_target = open(target_file, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
+            else
+                out_target = open(target_file, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+
+            if (out_target < 0) {
+                int execvpe_errno = errno;
+                switch (execvpe_errno) {
+                    case EACCES:
+                        res.tag = NATIVE_ERR_PERMISSION;
+                        return res;
+                    case EINTR:
+                        res.tag = NATIVE_ERR_INTERRUPT;
+                        return res;
+                    case EMFILE: case ENFILE:
+                        res.tag = NATIVE_ERR_MAX;
+                        return res;
+                    case ENAMETOOLONG:
+                        res.tag = NATIVE_ERR_VARIABLE_SIZE;
+                        return res;
+                    default:
+                        return res;
+                }
+            }
+            out_file = out_target;
+        }
+    } else {
+        //Run statement without a target file just goes to stdout
+        out_target = STDOUT_FILENO;
+    }
+
+    //Set err target
+    int err_target; int err_file = 0;
+    if (err_target_file) {
+        if (opts & EXEC_OPTS_APPEND_ERR)
+            err_target = open(err_target_file, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
+        else
+            err_target = open(err_target_file, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+
+        if (err_target < 0) {
+            int execvpe_errno = errno;
+            switch (execvpe_errno) {
+                case EACCES:
+                    res.tag = NATIVE_ERR_PERMISSION;
+                    if(out_file)
+                        close(out_file);
+                    return res;
+                case EINTR:
+                    res.tag = NATIVE_ERR_INTERRUPT;
+                    if(out_file)
+                        close(out_file);
+                    return res;
+                case EMFILE: case ENFILE:
+                    res.tag = NATIVE_ERR_MAX;
+                    if(out_file)
+                        close(out_file);
+                    return res;
+                case ENAMETOOLONG:
+                    res.tag = NATIVE_ERR_VARIABLE_SIZE;
+                    if(out_file)
+                        close(out_file);
+                    return res;
+                default:
+                    if(out_file)
+                        close(out_file);
+                    return res;
+            }
+        }
+        err_file = err_target;
+    } else {
+        //Run statement without a target file just goes to stdout
+        err_target = STDERR_FILENO;
+    }
+
     /* Create pipe to communicate execvpe failure in the child */
+    int err_pipe_fd[2];
     if (!(opts & EXEC_OPTS_BG))
         pipe(err_pipe_fd);
-    
-    if (opts & EXEC_OPTS_EVAL)
-        pipe(eval_pipe_fd);
 
     //Create process that reads and prepares output
     pid_t fork_res = fork();
     if (fork_res < 0) {
         res.tag = NATIVE_ERR_FORKFAILED;
+        close_files(out_file, err_file);
         return res;
     }
 
@@ -168,22 +258,28 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts)
                 break;
             case ENOMEM: case EAGAIN: case ENOSYS:
                 res.tag = NATIVE_ERR_FORKFAILED;
+                close_files(out_file, err_file);
                 return res;
             case ENOENT:
                 res.tag = NATIVE_ERR_NOTFOUND;
+                close_files(out_file, err_file);
                 return res;
             // TODO treat other exec errors
             default:
+                close_files(out_file, err_file);
                 return res;
             }
 
             int exit_code;
             waitpid(fork_res, &exit_code, 0);
 
-            //Get output from process
+            // Process is finished. Close files
+            close_files(out_file, err_file);
+
+            // Get output from process
             if (opts & EXEC_OPTS_EVAL) {
                 close(eval_pipe_fd[1]);
-                //Read bytes
+                // Read bytes
                 int num_bytes = read(eval_pipe_fd[0] , res.out_string , EVAL_BUFFER_SIZE);
                 if (num_bytes >= 0) {
                     res.out_string[num_bytes] = 0;
@@ -201,7 +297,7 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts)
                 }
             }
 
-            //Get exit code from last process
+            // Get exit code from last process
             res.tag = NATIVE_ERR_SUCCESS;
             res.exit_code = WEXITSTATUS(exit_code);
         } else {
@@ -215,9 +311,22 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts)
         close(err_pipe_fd[0]);
         res.pipe_info.err_pipe_fd = err_pipe_fd[1];
     }
-    if(opts & EXEC_OPTS_EVAL) {
+
+    if (opts & EXEC_OPTS_EVAL) {
         close(eval_pipe_fd[0]);
-        res.pipe_info.write_fd = eval_pipe_fd[1];
+        out_target = eval_pipe_fd[1];
+    }
+
+    if (opts & EXEC_OPTS_ERR_TO_OUT) {
+        res.pipe_info.error_fd = out_target;
+    } else {
+        res.pipe_info.error_fd = err_target;
+    }
+    
+    if (opts & EXEC_OPTS_OUT_TO_ERR) {
+        res.pipe_info.write_fd = err_target;
+    } else {
+        res.pipe_info.write_fd = out_target;
     }
     res.tag = NATIVE_ERR_PROCESS_RUNNING;
 
@@ -228,21 +337,13 @@ struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
     enum exec_opts_t opts, struct native_run_result res, int index, const char *source_file)
 {
-    /* Execute setup run at beginning of recursive run */
-    const char **env = envstrings;
-    char **parent_env = environ;
-
-    for (; *env; ++env);  /* go to end of array */
-
-    /* Copy parent env to child env array */
-    for (; *parent_env; ++parent_env, ++env)
-        *env = *parent_env;
-    *env = NULL;
+    res.tag = NATIVE_ERR_PROCESS_RUNNING;
 
     //Make pipe
     int new_pipe[2];
     pipe(new_pipe);
 
+    /* Fork the process to avoid the script being replaced by execvp */
     pid_t fork_res = fork();
     if (fork_res < 0) {
         int execvpe_errno = 0;
@@ -257,15 +358,41 @@ struct native_run_result native_execute(
         //We're the parent. Start new process
         dup2(res.pipe_info.write_fd, STDOUT_FILENO);
 
-        //Pipe to next process this is NOT the last process
+        //Pipe to next process if this is not the first process
         if (index > 0) {
             close(new_pipe[1]);
             dup2(new_pipe[0], STDIN_FILENO);
         }
-        else {
-            //If there is some io redirection here, do it!
-            //dup2(source_file, STDOUT_FILENO);
+        else if (source_file) {
+            int source;
+            source = open(source_file, O_RDONLY);
+            if (source < 0) {
+                int execvpe_errno = errno;
+                switch (execvpe_errno) {
+                    case EACCES:
+                        res.tag = NATIVE_ERR_PERMISSION;
+                        return res;
+                    case EINTR:
+                        res.tag = NATIVE_ERR_INTERRUPT;
+                        return res;
+                    case EMFILE: case ENFILE:
+                        res.tag = NATIVE_ERR_MAX;
+                        return res;
+                    case ENAMETOOLONG:
+                        res.tag = NATIVE_ERR_VARIABLE_SIZE;
+                        return res;
+                    case ENOENT: case ENOTDIR:
+                        res.tag = NATIVE_ERR_FILE_NOTFOUND;
+                        return res;
+                    default:
+                        return res;
+                }
+            }
+            //Set input of this first process to the source file
+            dup2(source, STDIN_FILENO);
         }
+
+        dup2(res.pipe_info.error_fd, STDERR_FILENO);
 
         //Start process
         execvpe(executable, exeargs, envstrings);  /* should never return */

@@ -136,7 +136,8 @@ int native_rmdir(const char *dir)
     return RemoveDirectory(dir);
 }
 
-void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *res)
+struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
+    const char *target_file, const char *err_target_file)
 {
     struct native_run_result res;
 
@@ -145,7 +146,7 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *res)
     if (opts & EXEC_OPTS_EVAL) {
         SECURITY_ATTRIBUTES sa;
         sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-        sa.bInheritHandle = TRUE; 
+        sa.bInheritHandle = TRUE;
         sa.lpSecurityDescriptor = NULL;
         
         if (! CreatePipe(&pipe_eval_rd, &write_handle, &sa, 0)) {
@@ -160,15 +161,97 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *res)
             res.tag = NATIVE_ERR_PIPE_FAILED;
             return res;
         }
+    } else if (target_file) {
+        SECURITY_ATTRIBUTES file_sa; 
+        file_sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+        file_sa.bInheritHandle = TRUE; 
+        file_sa.lpSecurityDescriptor = NULL;
+
+        int creation_rights = CREATE_ALWAYS;
+        DWORD access_rights = FILE_WRITE_DATA;
+        if (opts & EXEC_OPTS_APPEND_TO) {
+            access_rights = FILE_APPEND_DATA;
+            creation_rights = OPEN_ALWAYS;
+        }
+
+        write_handle = CreateFile(target_file,
+                    access_rights, 0, &file_sa,
+                    creation_rights, FILE_ATTRIBUTE_NORMAL, // Create_always?
+                    NULL);
+        res.pipe_info.file_handles[1] = write_handle;
+        
+        if (write_handle == INVALID_HANDLE_VALUE) {
+            switch (GetLastError()) {
+            case ERROR_FILE_NOT_FOUND:
+                res.tag = NATIVE_ERR_FILE_NOTFOUND;
+                return res;
+            default:
+                res.tag = NATIVE_ERR_INVALID;
+                return res;
+            }
+        }
+
+        if (opts & EXEC_OPTS_APPEND_TO) {
+            SetFilePointer(write_handle, 0, NULL, FILE_END);
+        }
     } else {
         write_handle = GetStdHandle(STD_OUTPUT_HANDLE);
     }
+    
+    HANDLE error_handle;
+    if (err_target_file) {
+        SECURITY_ATTRIBUTES file_sa;
+        file_sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+        file_sa.bInheritHandle = TRUE;
+        file_sa.lpSecurityDescriptor = NULL;
 
-    res->pipe_info.write_handle = write_handle;
-    res->pipe_info.read_handle = pipe_eval_rd;
-    res->pipe_info.final_process = NULL;
-    res->tag = NATIVE_ERR_PROCESS_RUNNING;
-    return;
+        int creation_rights;
+        DWORD access_rights;
+        if (opts & EXEC_OPTS_APPEND_ERR) {
+            access_rights = FILE_APPEND_DATA;
+            creation_rights = OPEN_ALWAYS;
+        } else {
+            creation_rights = CREATE_ALWAYS;
+            access_rights = FILE_WRITE_DATA;
+        }
+        
+        error_handle = CreateFile(err_target_file,
+                    access_rights, 0, &file_sa,
+                    creation_rights, FILE_ATTRIBUTE_NORMAL,
+                    NULL);
+
+        if (error_handle == INVALID_HANDLE_VALUE) {
+            switch (GetLastError()) {
+            case ERROR_FILE_NOT_FOUND:
+                res.tag = NATIVE_ERR_FILE_NOTFOUND;
+                return res;
+            default:
+                res.tag = NATIVE_ERR_INVALID;
+                return res;
+            }
+        }
+        res.pipe_info.file_handles[2] = error_handle;
+    }
+    else if (opts & EXEC_OPTS_ERR_TO_OUT) {
+        error_handle = res.pipe_info.write_handle;
+    } else {
+        error_handle = GetStdHandle(STD_ERROR_HANDLE);
+    }
+
+    if (opts & EXEC_OPTS_OUT_TO_ERR) {
+        res.pipe_info.write_handle = error_handle;
+    } else {
+        res.pipe_info.write_handle = write_handle;
+    }
+    if (opts & EXEC_OPTS_ERR_TO_OUT) {
+        res.pipe_info.error_handle = write_handle;
+    } else {
+        res.pipe_info.error_handle = error_handle;
+    }
+    res.pipe_info.read_handle = pipe_eval_rd;
+    res.pipe_info.final_process = NULL;
+    res.tag = NATIVE_ERR_PROCESS_RUNNING;
+    return res;
 }
 
 // Returning pipe_fail error from execute_in_pipe
@@ -214,31 +297,55 @@ struct native_run_result native_execute(
     STARTUPINFO suinfo;
     memset(&suinfo, 0, sizeof(suinfo));
     suinfo.cb = sizeof(suinfo);
-    suinfo.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+
+    suinfo.hStdError = res.pipe_info.error_handle;
+    suinfo.hStdOutput = res.pipe_info.write_handle;
 
     //Make pipe
-    HANDLE pipe_out_rd, pipe_out_wr;
     SECURITY_ATTRIBUTES sa; 
     sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
     sa.bInheritHandle = TRUE; 
     sa.lpSecurityDescriptor = NULL; 
-    
-    if(index > 0) {
-        if (! CreatePipe(&pipe_out_rd, &pipe_out_wr, &sa, 0))
-        {
+
+    //Set input depending on if this is/isn't the first process in the pipe
+    if (index > 0) {
+        HANDLE pipe_out_rd, pipe_out_wr;
+        if (! CreatePipe(&pipe_out_rd, &pipe_out_wr, &sa, 0)) {
             CloseHandle(pipe_out_wr);
             CloseHandle(pipe_out_rd);
             res.tag = NATIVE_ERR_PIPE_FAILED;
             return res;
         }
-    }
-    else {
-        //Until io_redirection, source_file has no use
-        pipe_out_rd = GetStdHandle(STD_INPUT_HANDLE);
-    }
+        suinfo.hStdInput = pipe_out_rd;
+        res.pipe_info.write_handle = pipe_out_wr;
+    } else {
+        //Prepare the process's input
+        if (source_file) {
+            SECURITY_ATTRIBUTES file_sa; 
+            file_sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+            file_sa.bInheritHandle = TRUE; 
+            file_sa.lpSecurityDescriptor = NULL; 
+            suinfo.hStdInput = CreateFile(source_file,
+                            GENERIC_READ, 0, &file_sa,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_READONLY,
+                            NULL);
+            res.pipe_info.file_handles[0] = suinfo.hStdInput;
 
-    suinfo.hStdOutput = res->pipe_info.write_handle;
-    suinfo.hStdInput = pipe_out_rd;
+            if ( suinfo.hStdInput == INVALID_HANDLE_VALUE) {
+                switch (GetLastError()) {
+                case ERROR_FILE_NOT_FOUND:
+                    res.tag = NATIVE_ERR_FILE_NOTFOUND;
+                    return res;
+                default:
+                    res.tag = NATIVE_ERR_INVALID;
+                    return res;
+                }
+            }
+        } else {
+            //Run statement without a target file just goes to stdout
+            suinfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        }
+    }
     suinfo.dwFlags = STARTF_USESTDHANDLES;
 
     //Create new process info
@@ -255,9 +362,6 @@ struct native_run_result native_execute(
         }
     }
 
-    CloseHandle(pinfo.hThread);
-
-    res->pipe_info.write_handle = pipe_out_wr;
     // If no final process has been set, that means THIS is the final process
     if (res.pipe_info.final_process == NULL) {
         res.pipe_info.final_process = pinfo.hProcess;
@@ -288,6 +392,12 @@ struct native_run_result native_execute_begin(struct native_run_result res,
         CloseHandle(res.pipe_info.final_process);
     } else {
         res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+    }
+
+    //Close all files
+    for(int i=0; i<3; i++) {
+        CloseHandle(res.pipe_info.file_handles[i]);
+        res.pipe_info.file_handles[i] = NULL;
     }
 
     return res;

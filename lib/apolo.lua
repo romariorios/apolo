@@ -611,12 +611,28 @@ local function apolo_execute_call(options, args)
         end
     end
 
-    return apolo.core.execute(exec_commands, envstrings, options.bg, options.is_eval, #exec_commands)
+    -- Set warning for when users try appending to the same file twice at the same time
+    if options.append_err_to == options.append_to and options.append_err_to ~= nil then
+        print("WARNING!!! You are appending to same file multiple times simultaneously. " ..
+            "This is not supported for all platforms and can cause file corruption on Linux.")
+    end
+
+    return apolo.core.execute(exec_commands, envstrings, options.bg, options.is_eval, #exec_commands,
+        options.from or "", options.out_to or options.append_to or "", (options.out_to == nil),
+        options.err_to or options.append_err_to or "", (options.err_to == nil), options.err_to_out,
+        options.out_to_err)
 end
 
-local apolo_run_options = {bg = 'switch', env = 'param', pipe = 'switch'}
-apolo.run = make_apolo_command({bg = false, is_eval = false}, apolo_run_options, apolo_execute_call)
-apolo.eval = make_apolo_command({bg = false, is_eval = true}, apolo_run_options, apolo_execute_call)
+local apolo_run_options = {bg = 'switch', env = 'param', pipe = 'switch', from = 'param',
+    out_to = 'param', append_to = 'param', err_to = 'param', append_err_to = 'param',
+    err_to_out = 'switch', out_to_err = 'switch'}
+apolo.run = make_apolo_command({bg = false, is_eval = false, err_to_out = false, out_to_err = false},
+    apolo_run_options, apolo_execute_call)
+
+local apolo_eval_options = {env = 'param', pipe = 'switch', from = 'param', err_to = 'param',
+    append_err_to = 'param', err_to_out = 'switch'}
+apolo.eval = make_apolo_command({bg = false, is_eval = true, err_to_out = false, out_to_err = false},
+    apolo_eval_options, apolo_execute_call)
 
 apolo.writef = {}
 

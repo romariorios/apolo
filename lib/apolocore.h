@@ -38,9 +38,12 @@ enum native_err {
     NATIVE_ERR_FORKFAILED,
     NATIVE_ERR_INUSE,
     NATIVE_ERR_NOTFOUND,
+    NATIVE_ERR_FILE_NOTFOUND,
     NATIVE_ERR_PERMISSION,
     NATIVE_ERR_PIPE_FAILED,
     NATIVE_ERR_INTERRUPT,
+    NATIVE_ERR_MAX,
+    NATIVE_ERR_VARIABLE_SIZE,
 
     NATIVE_ERR_BACKGROUND_SUCCESS,
     NATIVE_ERR_PROCESS_RUNNING,
@@ -50,7 +53,12 @@ enum native_err {
 enum exec_opts_t {
     EXEC_OPTS_INVALID = 0x0,
     EXEC_OPTS_BG = 0x1,
-    EXEC_OPTS_EVAL = 0x2
+    EXEC_OPTS_EVAL = 0x2,
+    EXEC_OPTS_RETURN_ERR = 0x4,
+    EXEC_OPTS_APPEND_TO = 0x8,
+    EXEC_OPTS_APPEND_ERR = 0x10,
+    EXEC_OPTS_ERR_TO_OUT = 0x20,
+    EXEC_OPTS_OUT_TO_ERR = 0x40
 };
 
 
@@ -74,7 +82,8 @@ struct native_run_result
     struct native_pipe_info pipe_info;
 };
 
-struct native_run_result native_setup_proc_out(enum exec_opts_t opts);
+struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
+    const char *target_file, const char *err_target_file);
 
 struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,

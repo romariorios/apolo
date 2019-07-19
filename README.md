@@ -187,7 +187,7 @@ The following information is available:
 
 Returns `true` if `path` exists; `false` otherwise.
 
-### `apolo.eval[.env(env_table)][.pipe](command, ...)`
+### `apolo.eval[.env(env_table)][.pipe][.from(filename)][.err_to_out](command, ...)`
 
 - Arguments:
   - `env_table`: table
@@ -221,6 +221,12 @@ function that will execute all commands in your defined custom environment:
 Executing the command as `eval.pipe` will accept many commands into the function's
 arguments, which will be piped into each other similar to a bash script. For more details,
 check the documentation for `run`.
+
+Executing the command as `eval.from` will get the input from a file instead of from
+stdin.
+
+Executing the command as `eval.err_to_out` will return the value of the error stream along
+with the value from stdout.
 
 Eval returns the console output as a string when it's successful. Otherwise, it
 returns `nil` followed by the error string. This way, the user can wrap any run
@@ -343,10 +349,11 @@ For example, if you want `readf` to handle `http` addresses, do the following:
 
     local robots_txt = readf 'http://duckduckgo.com/robots.txt'
 
-### `apolo.run[.bg][.pipe][.env(env_table)](command, ...)`
+### `apolo.run[.bg][.pipe][.env(env_table)][.from(filename)][.out_to(filename)][.append_to(filename)][.err_to(filename)][.append_err_to(filename)][.err_to_out](command, ...)`
 
 - Arguments:
   - `env_table`: table
+  - `filename`: string
   - `command`: string or table
   - `...`: Many strings or tables, representing commands piped together
 - Return:
@@ -385,8 +392,34 @@ Similarly, the commands can be tables of arguments:
 
     run.pipe({'ls', '-l'}, 'grep .txt', {'sort'})
 
+Executing the command as `run.to` will write the output to a file instead of to
+stdout. If the file already exists, its contents will be overwritten.
+
+Executing the command as `run.append_to` will append the output to a file instead of to
+stdout. If the file doesn't exist, it will be created, and if it does exist the output
+will be appended to the end of the file. If both `.to` and `.append_to` are used, the
+program will default to using `.to` and overwrite the file.
+
+Executing the command as `run.from` will get the input from a file instead of from
+stdin.
+
+Executing the command as `run.err_to` will write the error stream (stderr) to a file.
+If the file already exists, its contents will be overwritten, just like `.to`.
+
+Executing the command as `run.append_err_to` will append the error stream (stderr) to a file.
+It works like `.append_to`.
+
+Executing the command as `run.err_to_out` will append the error stream (stderr) of all processes
+to the output stream (stdout). This modifier does not work in conjunction with `.err_to`
+or `append_err_to`. Be careful when using this modifier on a pipe, as multiple piped processes
+may write their errors to out at the same time.
+
+Executing the command as `run.out_to_err` will append the output stream (stdout) of the process
+(or the last process in the pipe, if there is one) to the error stream (stderr). Similar to
+`err_to_out`, this modifier does not work with `out_to` but does work with `err_to`.
+
 Run returns `true` followed by the exit code when it's successful; otherwise,
-it returns `nil` followed by the error string. This way, the user can wrap
+it returns `nil` followed by the error string. That way, the user can wrap
 any run call with `assert`:
 
     assert(en_run 'lls -la "foo bar"')  -- Error: Command not found

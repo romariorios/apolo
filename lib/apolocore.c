@@ -29,6 +29,7 @@
 /* C includes */
 #include <stdlib.h>
 
+#include <stdio.h>
 /* Apolo includes */
 #include "apolocore.h"
 
@@ -177,12 +178,19 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 /* apolo.core.run(exe_commands, envstrings, is_background, is_eval, pipe_length) */
 static int apolocore_execute(lua_State *L)
 {
-    check_argc(5);
+    check_argc(12);
     check_arg_type(1, LUA_TTABLE);
     check_arg_type(2, LUA_TTABLE);
     check_arg_type(3, LUA_TBOOLEAN);
     check_arg_type(4, LUA_TBOOLEAN);
     check_arg_type(5, LUA_TNUMBER);
+    check_arg_type(6, LUA_TSTRING);
+    check_arg_type(7, LUA_TSTRING);
+    check_arg_type(8, LUA_TBOOLEAN);
+    check_arg_type(9, LUA_TSTRING);
+    check_arg_type(10, LUA_TBOOLEAN);
+    check_arg_type(11, LUA_TBOOLEAN);
+    check_arg_type(12, LUA_TBOOLEAN);
 
     {
         int len = lua_tonumber(L, 5);
@@ -210,7 +218,7 @@ static int apolocore_execute(lua_State *L)
             lua_pop(L, 4);
         }
         // Pop table
-        lua_pop(L, 2);
+        lua_pop(L, 1);
 
         /* Store env vars in an array */
         table_to_strarray(L, 2, envstrings);
@@ -218,18 +226,38 @@ static int apolocore_execute(lua_State *L)
         /* Set up opts */
         enum exec_opts_t opts = EXEC_OPTS_INVALID;
         if (lua_toboolean(L, 3))
-            opts  = opts | EXEC_OPTS_BG;
+            opts = opts | EXEC_OPTS_BG;
         if (lua_toboolean(L, 4))
-            opts  = opts | EXEC_OPTS_EVAL;
+            opts = opts | EXEC_OPTS_EVAL;
+        if (lua_toboolean(L, 8))
+            opts = opts | EXEC_OPTS_APPEND_TO;
+        if (lua_toboolean(L, 10))
+            opts = opts | EXEC_OPTS_APPEND_ERR;
+        if (lua_toboolean(L, 11))
+            opts = opts | EXEC_OPTS_ERR_TO_OUT;
+        if (lua_toboolean(L, 12))
+            opts = opts | EXEC_OPTS_OUT_TO_ERR;
 
-        struct native_run_result proc = native_setup_proc_out(opts);
+        const char* source = lua_tostring(L, 6);
+        const char* target = lua_tostring(L, 7);
+        const char* err_target = lua_tostring(L, 9);
+
+        //If the IO-redirection files are empty strings, that means there should be no redirection
+        if (source[0] == 0)
+            source = NULL;
+        if (target[0] == 0)
+            target = NULL;
+        if (err_target[0] == 0)
+            err_target = NULL;
+
+        struct native_run_result proc = native_setup_proc_out(opts, target, err_target);
         if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
             for (int pipe=len-1; pipe >= 0; pipe--) {
                 if (proc.tag != NATIVE_ERR_PROCESS_RUNNING) {
                     break;
                 }
                 proc = native_execute(executable[pipe], exeargs[pipe], envstrings,
-                    opts, proc, pipe, NULL);
+                    opts, proc, pipe, source);
             }
             if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
                 proc = native_execute_begin(proc, opts);
@@ -247,6 +275,11 @@ static int apolocore_execute(lua_State *L)
             lua_pushstring(L, "Command not found");
 
             return 2;
+        case NATIVE_ERR_FILE_NOTFOUND:
+            lua_pushnil(L);
+            lua_pushstring(L, "File not found");
+
+            return 2;
         case NATIVE_ERR_PIPE_FAILED:
             lua_pushnil(L);
             lua_pushstring(L, "Pipe creation failed");
@@ -255,6 +288,21 @@ static int apolocore_execute(lua_State *L)
         case NATIVE_ERR_INTERRUPT:
             lua_pushnil(L);
             lua_pushstring(L, "Command interrupted before completion");
+
+            return 2;
+        case NATIVE_ERR_PERMISSION:
+            lua_pushnil(L);
+            lua_pushstring(L, "Process doesn't have proper permissions to open file");
+
+            return 2;
+        case NATIVE_ERR_MAX:
+            lua_pushnil(L);
+            lua_pushstring(L, "Process has too many files/file descriptors open. Increase the maximum and try again");
+
+            return 2;
+        case NATIVE_ERR_VARIABLE_SIZE:
+            lua_pushnil(L);
+            lua_pushstring(L, "File name exceeded max length");
 
             return 2;
         case NATIVE_ERR_BACKGROUND_SUCCESS:

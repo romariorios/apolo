@@ -5,8 +5,6 @@ run 'whoami'
 run('whoami')
 run{'whoami'}
 
-del('apoloruntests')
-
 assert(
     not run 'non-existent',
     'Should return false on non-existent executable')
@@ -198,7 +196,6 @@ chdir.mk('pipetests', function()
             print("Hello World")
         ]])
 
-    
     if pcall(run.pipe, 'lua seed.lua') then
         assert(false, 'pipe function with only one function succeeds')
     end
@@ -228,3 +225,154 @@ chdir.mk('pipetests', function()
 end)
 
 del('pipetests')
+
+chdir.mk('redirectiontests', function()
+    writef(
+        'read_write.lua',
+        [[
+            local var = io.read()
+            io.write("Hello " .. var)
+        ]])
+    writef(
+        'read_pipe.lua',
+        [[
+            local var = io.read()
+            print("Hello " .. var)
+        ]])
+    writef(
+        'write.lua',
+        [[
+            io.write("Greetings!")
+        ]])
+    writef('input.txt', [[World!]])
+
+    -- Test .from
+    assert(run.from("input.txt"){luacmd, "read_write.lua"}, ".from doesn't work in run")
+    print(eval.from("input.txt"){luacmd, "read_write.lua"})
+    assert(eval.from("input.txt"){luacmd, "read_write.lua"} == "Hello World!", ".from doesn't work in eval")
+    -- Test .out_to
+    assert(run.out_to("Output.txt"){luacmd, "write.lua"}, ".out_to doesn't work in run")
+    assert(readf("Output.txt") == "Greetings!", ".out_to doesn't work in run")
+    -- Test .from and .out_to together
+    assert(run.from("input.txt").out_to("Output2.txt"){luacmd, "read_write.lua"}, ".out_to and .from together doesn't work in run")
+    assert(readf("Output2.txt") == "Hello World!", ".out_to and .from together doesn't work in run")
+    -- Test .from and .out_to with piping in run
+    assert(run.from("input.txt").out_to("Output3.txt").pipe({luacmd, "read_pipe.lua"}, {luacmd, "read_write.lua"}),
+        "piping with .out_to and .from together doesn't work in run")
+    assert(readf("Output3.txt") == "Hello Hello World!", ".out_to and .from together doesn't work in run")
+    -- Test .from with piping in eval
+    assert(eval.from("input.txt").pipe({luacmd, "read_pipe.lua"}, {luacmd, "read_write.lua"}) == "Hello Hello World!",
+        "piping .out_to and .from together doesn't work in eval")
+    -- Test .append_to
+    assert(run.append_to("Output.txt"){luacmd, "write.lua"}, ".append_to doesn't work in run")
+    assert(readf("Output.txt") == "Greetings!Greetings!", ".append_to doesn't work in run")
+    -- Test .append_to in combination with .from
+    assert(run.from("input.txt").append_to("Output2.txt"){luacmd, "read_write.lua"},
+        ".append_to and .from together doesn't work in run")
+    assert(readf("Output2.txt") == "Hello World!Hello World!", ".append_to and .from together doesn't work in run")
+
+
+    -- Test .from and .out_to in a background process (add when merged in with process-management)
+    --local proc = run.from("input.txt").out_to("Output4.txt").bg{luacmd, "read_write.lua")
+    --proc:wait()
+    --assert(readf("Output4.txt") == "Hello Hello World!", ".out_to and .from together don't work in background processes")
+end)
+
+del('redirectiontests')
+
+chdir.mk('redirecterrortests', function()
+    writef(
+        'error.lua',
+        [[
+            if arg[1] == 'fail' then
+                error("Expected Error")
+            else
+                io.write("Greetings!")
+            end
+        ]])
+    writef(
+        'print_error.lua',
+        [[
+            print("Hello World!")
+            error(arg[1])
+        ]])
+    writef(
+        'read_error.lua',
+        [[
+            local val = io.read()
+            error(val)
+        ]])
+    writef(
+        'seed.lua',
+        [[
+            print("From Output")
+        ]])
+    writef(
+        'read_write.lua',
+        [[
+            local var = io.read()
+            io.write("Expected " .. var)
+        ]])
+    writef('input.txt', [[Expected Error]])
+
+    function get_first_line(input_str)
+        for str in string.gmatch(input_str, "([^\r\n]+)") do
+            return str
+        end
+    end
+    local clock = os.clock
+    function sleep(n)  -- seconds
+       local t0 = clock()
+       while clock() - t0 <= n do
+       end
+    end
+
+    -- Test .err_to
+    assert(not run.err_to("err.txt"){luacmd, "print_error.lua", "Expected Error!"},
+        "errored process returns true")
+    assert(get_first_line(readf("err.txt")) == luacmd .. ": print_error.lua:2: Expected Error!",
+        ".err_to doesn't write to file properly")
+    -- Test .err_to with .out_to
+    assert(run.err_to("err2.txt").out_to("out.txt"){luacmd, "error.lua", "succeed"},
+        "running lua process fails")
+    assert(readf("err2.txt") == "", ".err_to writes to file even when there is no error")
+    assert(readf("out.txt") == "Greetings!")
+
+    assert(not run.err_to("err2.txt").out_to("out.txt"){luacmd, "error.lua", "fail"},
+        "errored lua process returns true")
+    assert(get_first_line(readf("err2.txt"))
+        == luacmd .. ": error.lua:2: Expected Error", ".err_to writes incorrectly to file")
+    assert(readf("out.txt") == "", "run.out_to doesn't wipe file when overwriting it")
+
+    -- Test .append_err_to
+    local prelen = string.len(readf("err2.txt"))
+    assert(not run.append_err_to("err2.txt"){luacmd, "error.lua", "fail"},
+        "errored lua process returns true")
+    assert(string.len(readf("err2.txt")) > prelen, "Append_err doesn't add to file length")
+
+    -- Test that .err_to overwrites file
+    assert(not run.err_to("err2.txt"){luacmd, "print_error.lua", "Another Expected Error"},
+        "errored lua process returns true")
+    assert(get_first_line(readf("err2.txt"))
+        == luacmd .. ": print_error.lua:2: Another Expected Error", ".err_to doesn't overwrite file")
+
+    -- Test eval.err
+    print("Testing error activation!")
+    assert(get_first_line(eval{luacmd, "print_error.lua", "Expected Error"}) == "Hello World!")
+    assert(get_first_line(eval.err_to_out{luacmd, "error.lua", "fail"}) ==
+        luacmd .. ": error.lua:2: Expected Error")
+
+    -- Test .from with eval.err
+    assert(get_first_line(eval.from('input.txt').err_to_out{luacmd, "read_error.lua"})
+        == luacmd .. ": read_error.lua:2: Expected Error")
+
+    -- Test .out_to_err
+    assert(run.out_to_err.err_to("err3.txt")({luacmd, "seed.lua"}))
+    assert(get_first_line(readf("err3.txt")) == "From Output")
+
+    -- Test .out_to_err with piping
+    assert(run.pipe.out_to_err.err_to("err3.txt")({luacmd, "seed.lua"}, {luacmd, "read_write.lua"}))
+    assert(get_first_line(readf("err3.txt")) == "Expected From Output")
+end)
+
+del('redirecterrortests')
