@@ -160,7 +160,7 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc
     if (!(opts & EXEC_OPTS_BG))
         pipe(err_pipe_fd);
     
-    if(opts & EXEC_OPTS_EVAL)
+    if (opts & EXEC_OPTS_EVAL)
         pipe(eval_pipe_fd);
     else
         res->write_fd = STDOUT_FILENO;
@@ -172,9 +172,9 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc
         return;
     }
 
-    if(fork_res != 0) {
+    if (fork_res != 0) {
 
-        if(!(opts & EXEC_OPTS_BG)) {
+        if (!(opts & EXEC_OPTS_BG)) {
             int execvpe_errno = 0;
             close(err_pipe_fd[1]);
             read(err_pipe_fd[0], &execvpe_errno, sizeof(execvpe_errno));
@@ -197,12 +197,11 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc
             waitpid(fork_res, &exit_code, 0);
 
             //Get output from process
-            if(opts & EXEC_OPTS_EVAL) {
+            if (opts & EXEC_OPTS_EVAL) {
                 close(eval_pipe_fd[1]);
                 //Read bytes
-                int num_bytes = read(eval_pipe_fd[0] , res->out_string , EVAL_BUFFER_SIZE );
-                if(num_bytes >= 0)
-                {
+                int num_bytes = read(eval_pipe_fd[0] , res->out_string , EVAL_BUFFER_SIZE);
+                if (num_bytes >= 0) {
                     res->out_string[num_bytes] = 0;
                 }
                 else {
@@ -276,12 +275,12 @@ void native_execute(
     }
 
     //Fork into two processes
-    if(fork_res != 0) {
+    if (fork_res != 0) {
         //We're the parent. Start new process
         dup2(res->write_fd, STDOUT_FILENO);
 
         //Pipe to next process this is NOT the last process
-        if(index > 0) {
+        if (index > 0) {
             close(new_pipe[1]);
             dup2(new_pipe[0], STDIN_FILENO);
         }

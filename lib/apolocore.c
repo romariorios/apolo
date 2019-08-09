@@ -158,7 +158,7 @@ static void table_to_strarray(lua_State *L, int index, const char **strarray)
 {
     int i = 0;
     //Negative indices won't count the nil being added, so decrease to compensate
-    if(index < 0)
+    if (index < 0)
         index--;
 
     lua_pushnil(L);
@@ -193,8 +193,7 @@ static int apolocore_execute(lua_State *L)
         /* Build executable and exeargs for each table in the table at parameter 1 */
         lua_pushvalue(L, 1);
         lua_pushnil(L);
-        while (lua_next(L, -2) != 0)
-        {
+        while (lua_next(L, -2) != 0) {
             // copy the key so that lua_tostring does not modify the original
             lua_pushvalue(L, -2);
             const int key = (int) lua_tonumber(L, -1) - 1;
@@ -226,8 +225,7 @@ static int apolocore_execute(lua_State *L)
         struct native_run_result proc;
         native_setup_proc_out(opts, &proc);
         if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
-            for ( int pipe=len-1; pipe >= 0; pipe--)
-            {
+            for (int pipe=len-1; pipe >= 0; pipe--) {
                 if (proc.tag != NATIVE_ERR_PROCESS_RUNNING) {
                     break;
                 }
@@ -264,7 +262,7 @@ static int apolocore_execute(lua_State *L)
 
             return 1;
         case NATIVE_ERR_SUCCESS:
-            if(opts & EXEC_OPTS_EVAL) {
+            if (opts & EXEC_OPTS_EVAL) {
                 lua_pushstring(L, proc.out_string);
 
                 return 1;

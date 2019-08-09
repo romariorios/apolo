@@ -48,11 +48,11 @@ int native_chdir(const char *dir)
 static int append_filename_to_path(const char *orig, const char *dest, char* dest_ex)
 {
     strcpy(dest_ex, dest); 
-    if(!PathIsFileSpec(orig) || !PathIsFileSpec(dest)) 
+    if (!PathIsFileSpec(orig) || !PathIsFileSpec(dest)) 
         return 1;
-    if(PathIsDirectory(dest)) {
+    if (PathIsDirectory(dest)) {
         char *orig_filename = PathFindFileName(orig);
-        if(strlen(orig_filename) + strlen(dest) >= MAX_PATH)
+        if (strlen(orig_filename) + strlen(dest) >= MAX_PATH)
             return 0;
         PathAppend(dest_ex, orig_filename);
     }
@@ -65,7 +65,7 @@ static int native_file_operation(const char *orig, const char *dest, UINT operat
     char orig_ex[MAX_PATH] = "";
     strcpy(orig_ex, orig);
     strcpy(dest_ex, dest);
-    if(!append_filename_to_path(orig, dest, dest_ex))
+    if (!append_filename_to_path(orig, dest, dest_ex))
         return 0;
     strncat(dest_ex, "\0", MAX_PATH); strncat(orig_ex, "\0", MAX_PATH);
     
@@ -155,21 +155,19 @@ void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc
 
     //Prepare the eval pipe
     HANDLE write_handle, pipe_eval_rd;
-    if(opts & EXEC_OPTS_EVAL) {
+    if (opts & EXEC_OPTS_EVAL) {
         SECURITY_ATTRIBUTES sa;
         sa.nLength = sizeof(SECURITY_ATTRIBUTES);
         sa.bInheritHandle = TRUE; 
         sa.lpSecurityDescriptor = NULL;
         
-        if (! CreatePipe(&pipe_eval_rd, &write_handle, &sa, 0))
-        {
+        if (! CreatePipe(&pipe_eval_rd, &write_handle, &sa, 0)) {
             CloseHandle(write_handle);
             CloseHandle(pipe_eval_rd);
             res->tag = NATIVE_ERR_PIPE_FAILED;
             return;
         }
-        if(! SetHandleInformation(pipe_eval_rd, HANDLE_FLAG_INHERIT, 0))
-        {
+        if (! SetHandleInformation(pipe_eval_rd, HANDLE_FLAG_INHERIT, 0)) {
             CloseHandle(write_handle);
             CloseHandle(pipe_eval_rd);
             res->tag = NATIVE_ERR_PIPE_FAILED;
@@ -262,9 +260,8 @@ void native_execute(
     //Create new process info
     PROCESS_INFORMATION pinfo;
     //Return whether creating process succeeds
-    if(!CreateProcess(NULL, cmdline, NULL, NULL,
-        TRUE, 0, env, NULL, &suinfo, &pinfo))
-    {
+    if (!CreateProcess(NULL, cmdline, NULL, NULL,
+        TRUE, 0, env, NULL, &suinfo, &pinfo)) {
         switch (GetLastError()) {
         case ERROR_FILE_NOT_FOUND:
             res->tag = NATIVE_ERR_NOTFOUND;
@@ -278,7 +275,7 @@ void native_execute(
 
     res->write_handle = pipe_out_wr;
     // If no final process has been set, that means THIS is the final process
-    if(res->final_process == NULL) {
+    if (res->final_process == NULL) {
         res->final_process = pinfo.hProcess;
     }
 
@@ -290,13 +287,13 @@ void native_execute_begin(struct native_run_result *proc,
 {
     struct native_windows_run_result *res = (struct native_windows_run_result*) proc;
 
-    if(!(opts & EXEC_OPTS_BG)) {
+    if (!(opts & EXEC_OPTS_BG)) {
         WaitForSingleObject(res->final_process, INFINITE);
         res->tag = NATIVE_ERR_SUCCESS;
         res->exit_code = 0;
 
         //Get output from process
-        if(opts & EXEC_OPTS_EVAL) {
+        if (opts & EXEC_OPTS_EVAL) {
             DWORD bytes_read;
             //CloseHandle(pipe_eval_wr);
             ReadFile(res->read_handle, res->out_string, EVAL_BUFFER_SIZE, &bytes_read, NULL);
