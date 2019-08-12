@@ -222,17 +222,17 @@ static int apolocore_execute(lua_State *L)
         if (lua_toboolean(L, 4))
             opts  = opts | EXEC_OPTS_EVAL;
 
-        struct native_run_result proc;
-        native_setup_proc_out(opts, &proc);
+        struct native_run_result proc = native_setup_proc_out(opts);
         if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
             for (int pipe=len-1; pipe >= 0; pipe--) {
                 if (proc.tag != NATIVE_ERR_PROCESS_RUNNING) {
                     break;
                 }
-                native_execute(executable[pipe], exeargs[pipe], envstrings, opts, &proc, pipe, NULL);
+                proc = native_execute(executable[pipe], exeargs[pipe], envstrings,
+                    opts, proc, pipe, NULL);
             }
             if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
-                native_execute_begin(&proc, opts);
+                proc = native_execute_begin(proc, opts);
             }
         }
 

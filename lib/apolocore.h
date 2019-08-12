@@ -22,6 +22,12 @@
 #ifndef APOLOCORE_H
 #define APOLOCORE_H
 
+#ifdef APOLO_OS_LINUX
+    #include "apolocore.linux.h"
+#elif APOLO_OS_WIN
+    #include "apolocore.win.h"
+#endif
+
 #define EVAL_BUFFER_SIZE 1024
 
 #include <lua.h>
@@ -65,16 +71,16 @@ struct native_run_result
     int exit_code;
     char out_string[EVAL_BUFFER_SIZE];
     
-    char pipe_reference[32];
+    struct native_pipe_info pipe_info;
 };
 
-void native_setup_proc_out(enum exec_opts_t opts, struct native_run_result *proc);
+struct native_run_result native_setup_proc_out(enum exec_opts_t opts);
 
-void native_execute(
+struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
-    enum exec_opts_t opts, struct native_run_result *prev_proc, int index, const char *source_file);
+    enum exec_opts_t opts, struct native_run_result prev_proc, int index, const char *source_file);
 
-void native_execute_begin(struct native_run_result *proc,
+struct native_run_result native_execute_begin(struct native_run_result proc,
     enum exec_opts_t opts);
 
 #endif
