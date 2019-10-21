@@ -245,6 +245,48 @@ guaranteed to be correct Lua code; instead, the function tries to make the
 most natural-looking literal for the value -- which can be valid Lua code for
 simple values.
 
+### `apolo.jobs[.status(status_filter)]()`
+
+- Arguments:
+  - `status_filter`: string
+- Return: table of running background processes
+
+Returns a table of all background processes started by `apolo.run.bg`. Processes
+are represented by tables
+
+The process table has three methods that can be used on it:
+  - `proc:wait()`: pauses the program until the process ends and returns
+the exit code
+  - `proc:suspend()`: suspends the process
+  - `proc:resume()`: resumes the process
+  - `proc:kill()`: kills the process similar to the SIGKILL signal
+  - `proc:terminate()`: terminates the process similar to the SIGTERM signal
+  - `proc:status()`: returns `running`, `suspended`, `failed` or `finished`
+depending on process state
+  - `proc:exit_code()`: returns the exit code of the process. The meaning of
+the code is process-dependent
+
+You can also use `proc.pid` or `proc.name` to get information about the process
+
+Executing the command with the added `jobs.status(status_filter)` will return a
+partial table of only processes with a status that matches the status_filter.
+
+Options for status_filter are `running`, `suspended`, `failed` and `finished`
+
+E.g.:
+
+    require 'apolo':as_global()
+
+    local proc = run.bg('name_of_some_background_process')
+    local old_processes = jobs() -- returns a table with x processes running
+    proc:kill() -- kills the process and returns true on success
+
+Optionally, you can treat apolo.jobs like a table to get a specific process
+using its PID.
+
+    -- Pid is set to the process id of some process
+    jobs[pid]:terminate() -- terminates the process with the given pid
+
 ### `apolo.glob(pattern)`
 
 - Arguments:
@@ -357,8 +399,9 @@ For example, if you want `readf` to handle `http` addresses, do the following:
   - `command`: string or table
   - `...`: Many strings or tables, representing commands piped together
 - Return:
-  - On success: boolean, number (error code)
+  - On success: boolean, number (exit code)
   - On failure: nil, string (error message)
+  - If using `.bg` modifier: process object
 
 Runs processes. If `command` is a string, it will be parsed and executed.
 Otherwise, if it's a table, the first element of `command` will be the
@@ -370,7 +413,9 @@ executable and all other elements will be the parameters:
     run 'ls -la "foo bar"'
     run{'ls', '-la', 'foo bar'}
 
-Executing the command as `run.bg` will spawn the process in the background.
+Executing the command as `run.bg` will spawn the process in the background and
+return a table for the resulting process. The process table has its own
+functions and variables (see `jobs` for more info).
 
 Executing the command as `run.env` will run the command with the current
 environment plus the variables defined in `env_table`:

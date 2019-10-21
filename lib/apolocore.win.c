@@ -1,4 +1,5 @@
 /* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+   Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -18,13 +19,15 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
    DEALINGS IN THE SOFTWARE.
 */
+
+// Define macro so suspend commands will be used
+#define _WIN32_WINNT 0x0501
+
 #include "apolocore.h"
 
 #include <string.h>
 #include <windows.h>
 #include <shlwapi.h>
-
-#include <stdio.h>
 
 const char *apolocore_os = "win";
 
@@ -114,6 +117,154 @@ int native_fillentryarray(lua_State *L, const char *dir)
     FindClose(hfind);
 
     return 1;
+}
+
+struct native_job_result native_job_status(const int pid, int is_wait)
+{
+    struct native_job_result res = {NATIVE_ERR_INVALID, 0};
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    if (!hProcess) {
+        switch (GetLastError()) {
+        case ERROR_ACCESS_DENIED:
+            res.tag = NATIVE_ERR_PERMISSION;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            res.tag = NATIVE_ERR_NOTFOUND;
+            break;
+            // Default case will leave res with NATIVE_ERR_INVALID to signify unknown error
+        }
+    } else {
+        // Check if process is suspended
+        int result = 0;
+        if (!CheckRemoteDebuggerPresent(hProcess, &result)) {
+            // Error occured
+            res.tag = NATIVE_ERR_INVALID;
+            return res;
+        }
+
+        if (result) {
+            res.tag = NATIVE_ERR_BACKGROUND_SUSPENDED;
+            return res;
+        }
+
+        // Waiting for process
+        if (is_wait) {
+            WaitForSingleObject(hProcess, INFINITE);
+            res.tag = NATIVE_ERR_BACKGROUND_FINISHED;
+            GetExitCodeProcess(hProcess, &res.exit_code);
+        } else {
+            // Returning status and exit code for those functions
+            switch (WaitForSingleObject(hProcess, 0))
+            {
+                case WAIT_OBJECT_0:
+                    // A signal has been sent - the thread has finished
+                    res.tag = NATIVE_ERR_BACKGROUND_FINISHED;
+                    DWORD exit_code;
+                    GetExitCodeProcess(hProcess, &exit_code);
+                    if ((exit_code >= 1 && exit_code <= 15841) || exit_code >= 0xC0000000) {
+                        res.tag = NATIVE_ERR_BACKGROUND_FAILED;
+                    } else {
+                        res.exit_code = exit_code;
+                    }
+                    break;
+
+                case WAIT_TIMEOUT:
+                    // Process is still running...
+                    res.tag = NATIVE_ERR_BACKGROUND_RESUMED;
+                    break;
+                // Default case will leave res with NATIVE_ERR_INVALID to signify unknown error
+            }
+        }
+    }
+    CloseHandle(hProcess);
+    return res;
+}
+
+static BOOL CALLBACK sigterm_proc(HWND hwnd, LPARAM lParam)
+{
+    DWORD dwID ;
+    GetWindowThreadProcessId(hwnd, &dwID) ;
+
+    if (dwID == (DWORD)lParam)
+    {
+        PostMessage(hwnd, WM_CLOSE, 0, 0) ;
+    }
+
+    return TRUE ;
+}
+
+struct native_job_result native_job_kill(const int pid, int is_kill)
+{
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+
+    struct native_job_result res = {NATIVE_ERR_INVALID, 0};
+    if (!hProcess) {
+        switch (GetLastError()) {
+        case ERROR_ACCESS_DENIED:
+            res.tag = NATIVE_ERR_PERMISSION;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            res.tag = NATIVE_ERR_NOTFOUND;
+            break;
+        }
+        return res;
+    }
+
+    if (!is_kill) {
+      // Enumerate over running subprocesses and kindly end all processes matching pid
+      EnumWindows((WNDENUMPROC)sigterm_proc, (LPARAM) pid) ;
+    }
+
+    // Wait on the handle. If it signals, great. If it times out, then you kill it.
+    if(WaitForSingleObject(hProcess, 0) != WAIT_OBJECT_0) {
+        //IF windows gets codes: 1223 code is code for if process gets cancelled by user
+        BOOL result = TerminateProcess(hProcess, -1);
+        if (result) {
+            res.tag = NATIVE_ERR_SUCCESS;
+        } else {
+            switch(GetLastError()) {
+                case ERROR_ACCESS_DENIED:
+                    res.tag = NATIVE_ERR_PERMISSION;
+                    break;
+                case ERROR_INVALID_PARAMETER:
+                    res.tag = NATIVE_ERR_NOTFOUND;
+                    break;
+                //Default case will leave res with NATIVE_ERR_INVALID to signify unknown error
+            }
+        }
+    } else {
+        res.tag = NATIVE_ERR_SUCCESS;
+    }
+
+    CloseHandle(hProcess) ;
+    return res ;
+}
+
+struct native_job_result native_job_set_active(const int pid, int is_suspend)
+{
+    int result;
+    if (is_suspend) {
+        result = DebugActiveProcess(pid);
+    } else {
+        result = DebugActiveProcessStop(pid);
+    }
+
+    struct native_job_result res = {NATIVE_ERR_INVALID, 0};
+    if (!result) {
+        switch (GetLastError()) {
+        case ERROR_ACCESS_DENIED:
+            res.tag = NATIVE_ERR_PERMISSION;
+            break;
+        case ERROR_INVALID_PARAMETER:
+            res.tag = NATIVE_ERR_NOTFOUND;
+            break;
+        }
+        return res;
+    }
+
+    res.tag = NATIVE_ERR_SUCCESS;
+    return res ;
 }
 
 int native_mkdir(const char *dir)
@@ -250,7 +401,7 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
     }
     res.pipe_info.read_handle = pipe_eval_rd;
     res.pipe_info.final_process = NULL;
-    res.tag = NATIVE_ERR_PROCESS_RUNNING;
+    res.tag = NATIVE_ERR_IN_EXECUTE;
     return res;
 }
 
@@ -365,6 +516,7 @@ struct native_run_result native_execute(
     // If no final process has been set, that means THIS is the final process
     if (res.pipe_info.final_process == NULL) {
         res.pipe_info.final_process = pinfo.hProcess;
+        res.pid = pinfo.dwProcessId;
     }
 
     return res;
@@ -392,6 +544,13 @@ struct native_run_result native_execute_begin(struct native_run_result res,
         CloseHandle(res.pipe_info.final_process);
     } else {
         res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+        return res;
+    }
+
+    //Close all files
+    for(int i=0; i<3; i++) {
+        CloseHandle(res.pipe_info.file_handles[i]);
+        res.pipe_info.file_handles[i] = NULL;
     }
 
     //Close all files

@@ -1,4 +1,5 @@
 /* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+   Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -21,9 +22,9 @@
 
 #include "apolocore.h"
 
+#include <string.h>
 #include <dirent.h>
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -113,6 +114,90 @@ int native_fillentryarray(lua_State *L, const char *dirname)
     return 1;
 }
 
+struct native_job_result native_job_status(const int pid, int is_wait)
+{
+    int status_code;
+    int opts = 0;
+    if (!is_wait) {
+        opts = opts | WNOHANG | WUNTRACED | WCONTINUED;
+    }
+    
+    pid_t result = waitpid(pid, &status_code, opts);
+
+    struct native_job_result res = {NATIVE_ERR_BACKGROUND_UNCHANGED, 0};
+    if (result == 0) {
+        // Nothing has changed
+        return res;
+    } else if (result == -1) {
+        // Error
+        switch (errno) {
+            case ECHILD:
+                res.tag = NATIVE_ERR_NOTFOUND;
+                return res;
+            default:
+                res.tag = NATIVE_ERR_INVALID;
+                return res;
+        }
+    } else {
+        // Default return: error termination (failed)
+        res.tag = NATIVE_ERR_BACKGROUND_FAILED;
+        res.exit_code = 0;
+        if (WIFEXITED(status_code)) {
+            // Test if the process exited normally. If this returns false, the process errored out
+            res.tag = NATIVE_ERR_BACKGROUND_FINISHED;
+            res.exit_code = WEXITSTATUS(status_code);
+        } else if (WIFSTOPPED(status_code)) {
+            res.tag = NATIVE_ERR_BACKGROUND_SUSPENDED;
+        } else if (WIFCONTINUED(status_code)) {
+            res.tag = NATIVE_ERR_BACKGROUND_RESUMED;
+        }
+        return res;
+    }
+}
+
+static struct native_job_result native_job_signal(const int pid, int signal)
+{
+    int status = kill(pid, signal);
+    if (status < 0) {
+        struct native_job_result res = {NATIVE_ERR_INVALID, 0};
+        switch (errno) {
+            case EPERM:
+                res.tag = NATIVE_ERR_PERMISSION;
+                return res;
+            case ESRCH:
+                res.tag = NATIVE_ERR_NOTFOUND;
+                return res;
+            default:
+                return res;
+        }
+    } else {
+        struct native_job_result res = {NATIVE_ERR_SUCCESS, 1};
+        return res;
+    }
+}
+
+struct native_job_result native_job_kill(const int pid, int is_kill)
+{
+    int signal;
+    if (is_kill) {
+        signal = SIGKILL;
+    } else {
+        signal = SIGTERM;
+    }
+    return native_job_signal(pid, signal);
+}
+
+struct native_job_result native_job_set_active(const int pid, int is_suspend)
+{
+    int signal;
+    if (is_suspend) {
+        signal = SIGSTOP;
+    } else {
+        signal = SIGCONT;
+    }
+    return native_job_signal(pid, signal);
+}
+
 int native_mkdir(const char *dir)
 {
     // If directory already exists, return false
@@ -157,34 +242,31 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
     if (opts & EXEC_OPTS_EVAL) {
         pipe(eval_pipe_fd);
     } else if (target_file) {
-        if (!(opts & EXEC_OPTS_EVAL)) {
-            
-            if (opts & EXEC_OPTS_APPEND_TO)
-                out_target = open(target_file, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
-            else
-                out_target = open(target_file, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
+        if (opts & EXEC_OPTS_APPEND_TO)
+            out_target = open(target_file, O_CREAT | O_APPEND | O_WRONLY, S_IRWXU);
+        else
+            out_target = open(target_file, O_CREAT | O_WRONLY | O_TRUNC, S_IRWXU);
 
-            if (out_target < 0) {
-                int execvpe_errno = errno;
-                switch (execvpe_errno) {
-                    case EACCES:
-                        res.tag = NATIVE_ERR_PERMISSION;
-                        return res;
-                    case EINTR:
-                        res.tag = NATIVE_ERR_INTERRUPT;
-                        return res;
-                    case EMFILE: case ENFILE:
-                        res.tag = NATIVE_ERR_MAX;
-                        return res;
-                    case ENAMETOOLONG:
-                        res.tag = NATIVE_ERR_VARIABLE_SIZE;
-                        return res;
-                    default:
-                        return res;
-                }
+        if (out_target < 0) {
+            int execvpe_errno = errno;
+            switch (execvpe_errno) {
+                case EACCES:
+                    res.tag = NATIVE_ERR_PERMISSION;
+                    return res;
+                case EINTR:
+                    res.tag = NATIVE_ERR_INTERRUPT;
+                    return res;
+                case EMFILE: case ENFILE:
+                    res.tag = NATIVE_ERR_MAX;
+                    return res;
+                case ENAMETOOLONG:
+                    res.tag = NATIVE_ERR_VARIABLE_SIZE;
+                    return res;
+                default:
+                    return res;
             }
-            out_file = out_target;
         }
+        out_file = out_target;
     } else {
         //Run statement without a target file just goes to stdout
         out_target = STDOUT_FILENO;
@@ -302,6 +384,7 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
             res.exit_code = WEXITSTATUS(exit_code);
         } else {
             res.tag = NATIVE_ERR_BACKGROUND_SUCCESS;
+            res.pid = fork_res;
         }
         return res;
     }
@@ -328,7 +411,7 @@ struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
     } else {
         res.pipe_info.write_fd = out_target;
     }
-    res.tag = NATIVE_ERR_PROCESS_RUNNING;
+    res.tag = NATIVE_ERR_IN_EXECUTE;
 
     return res;
 }
@@ -337,7 +420,17 @@ struct native_run_result native_execute(
     const char *executable, const char **exeargs, const char **envstrings,
     enum exec_opts_t opts, struct native_run_result res, int index, const char *source_file)
 {
-    res.tag = NATIVE_ERR_PROCESS_RUNNING;
+    res.tag = NATIVE_ERR_IN_EXECUTE;
+    /* Execute setup run at beginning of recursive run */
+    const char **env = envstrings;
+    char **parent_env = environ;
+
+    for (; *env; ++env);  /* go to end of array */
+
+    /* Copy parent env to child env array */
+    for (; *parent_env; ++parent_env, ++env)
+        *env = *parent_env;
+    *env = NULL;
 
     //Make pipe
     int new_pipe[2];

@@ -1,4 +1,5 @@
 -- Copyright (C) 2017--2019 Luiz Romário Santana Rios
+-- Copyright (C) 2019 Connor McPherson
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a
 -- copy of this software and associated documentation files (the "Software"),
@@ -42,6 +43,36 @@ function apolo:as_global()
     for k, v in pairs(self) do
         _ENV[k] = v
     end
+end
+
+local function make_apolo_command(options, option_types, call)
+    local apolo_command = {}
+    local apolo_command_mt = {}
+
+    function apolo_command_mt.__index(_, option)
+        local new_options = {}
+        for k, v in pairs(options) do new_options[k] = v end
+
+        local opttype = option_types[option]
+        if opttype == 'switch' then
+            new_options[option] = true
+            return make_apolo_command(new_options, option_types, call)
+        elseif opttype == 'param' then
+            return function(value)
+                new_options[option] = value
+                return make_apolo_command(new_options, option_types, call)
+            end
+        else
+            error('Unknown option "' .. option .. '"')
+        end
+    end
+    
+    function apolo_command_mt.__call(_, ...)    
+        return call(options, ...)
+    end
+
+    setmetatable(apolo_command, apolo_command_mt)
+    return apolo_command
 end
 
 apolo.chdir = {}
@@ -222,6 +253,76 @@ end
 
 function apolo.inspect(value)
     return apolo_inspect(value, {})
+end
+
+apolo.jobs = {}
+
+local apolo_jobs_mt = {}
+
+--Job call function that prints all still existing processes created by .bg
+function apolo_jobs_mt.__call(apolo_jobs, status_filter)
+    if status_filter then
+        job_table = {}
+        for pid, proc in pairs(apolo_jobs) do
+            local status = proc:status()
+            if status == status_filter then
+                table.insert(job_table, proc)
+            end
+        end
+        return job_table
+    end
+    return apolo_jobs
+end
+
+setmetatable(apolo.jobs, apolo_jobs_mt)
+
+local apolo_proc_mt = {}
+function apolo_proc_mt.kill(self)
+    return apolo.core.job_kill(self.pid, true)
+end
+function apolo_proc_mt.terminate(self)
+    return apolo.core.job_kill(self.pid, false)
+end
+
+local function apolo_check_job(self, is_wait)
+    local status, exit_code = apolo.core.job_status(self.pid, is_wait)
+    self.cur_status = status or self.cur_status
+    
+    if exit_code ~= nil and exit_code < 0 then exit_code = nil end
+    
+    if status == "finished" or status == "failed" then
+        self.status = function(self) return status end
+        self.exit_code = function(self) return exit_code end
+    end
+
+    return exit_code
+end
+
+function apolo_proc_mt.wait(self)
+    return apolo_check_job(self, true)
+end
+function apolo_proc_mt.status(self)
+    apolo_check_job(self, false)
+    return self.cur_status
+end
+function apolo_proc_mt.exit_code(self)
+    return apolo_check_job(self, false)
+end
+function apolo_proc_mt.suspend(self)
+    apolo_check_job(self, false)
+    if self.cur_status == "running" then
+        return apolo.core.job_active(self.pid, true)
+    else
+        return nil, "process can not be suspended because it is not running"
+    end
+end
+function apolo_proc_mt.resume(self)
+    apolo_check_job(self, false)
+    if self.cur_status == "suspended" then
+        return apolo.core.job_active(self.pid, false)
+    else
+        return nil, "process is not suspended"
+    end
 end
 
 local function apolo_matches_glob_pattern(pattern, str)
@@ -617,10 +718,27 @@ local function apolo_execute_call(options, args)
             "This is not supported for all platforms and can cause file corruption on Linux.")
     end
 
-    return apolo.core.execute(exec_commands, envstrings, options.bg, options.is_eval, #exec_commands,
-        options.from or "", options.out_to or options.append_to or "", (options.out_to == nil),
-        options.err_to or options.append_err_to or "", (options.err_to == nil), options.err_to_out,
-        options.out_to_err)
+    local result, errcode = apolo.core.execute(
+        exec_commands, envstrings, options.bg, options.is_eval, #exec_commands,
+        options.from or "", options.out_to or options.append_to or "",
+        (options.out_to == nil), options.err_to or options.append_err_to or "",
+        (options.err_to == nil), options.err_to_out, options.out_to_err)
+
+    if result and options.bg  then
+        -- Create process object
+        local proc = {pid = result, name = executable, cur_status = "running"}
+        jobs[proc.pid] = proc
+
+        setmetatable(proc, {__index=apolo_proc_mt})
+
+        return proc
+    end
+
+    if options.is_eval then
+        return result
+    else
+        return result, errcode
+    end
 end
 
 local apolo_run_options = {bg = 'switch', env = 'param', pipe = 'switch', from = 'param',
@@ -662,5 +780,6 @@ function apolo_writef_mt.__call(_, filename, content)
 end
 
 setmetatable(apolo.writef, apolo_writef_mt)
+
 
 return apolo

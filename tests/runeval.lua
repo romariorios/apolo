@@ -53,6 +53,15 @@ chdir.mk('exitcodetests', function()
     local ret, errstr = run{'luna', 'exit-code.lua', 'success'}
     assert(not ret)
     assert(errstr == 'Command not found')
+    
+    local proc = run.bg{luacmd, 'exit-code.lua', 'success'}
+    print(proc)
+    proc:wait()
+    assert(proc:exit_code() == 0, 'background process has wrong exit code')
+
+    proc = run.bg{luacmd, 'exit-code.lua'}
+    proc:wait()
+    assert(proc:exit_code() == 10)
 end)
 
 del('exitcodetests')
@@ -97,12 +106,8 @@ chdir.mk('modifiertests', function()
             f:close()
         ]])
 
-    run.bg.env{HELLO = 'hello'}{luacmd, 'hello.lua'}
-
-    --Wait one second. Remove when background management is added
-    local clock = os.clock
-    local t0 = clock()
-    while clock() - t0 <= 1 do end
+    a = run.bg.env{HELLO = 'hello'}{luacmd, 'hello.lua'}
+    a:wait()
 
     assert(readf('hello')=='hello', 'hello')
 end)
@@ -160,8 +165,10 @@ chdir.mk('envtests', function()
             os.exit(0)
         ]])
 
-    assert(eval.env{FOO = 'foo'}{luacmd, 'check-env.lua'} == "a", "env modifer for eval failed")
-    assert(eval.env{BAR = 'bar'}{luacmd, 'check-env.lua'} == "b", "env modifer for eval failed")
+    assert(eval.env{FOO = 'foo'}{luacmd, 'check-env.lua'} == "a",
+        "env modifer for eval failed")
+    assert(eval.env{BAR = 'bar'}{luacmd, 'check-env.lua'} == "b",
+        "env modifer for eval failed")
 end)
 
 del('envtests')
@@ -376,3 +383,116 @@ chdir.mk('redirecterrortests', function()
 end)
 
 del('redirecterrortests')
+chdir.mk('backgroundmanagementtests', function()
+    writef(
+        'sleep_15.lua',
+        [[
+            local clock = os.clock
+            for i= 1,15 do
+                local t0 = clock()
+                while clock() - t0 <= 1 do end
+            end
+        ]])
+    writef(
+        'sleep_5.lua',
+        [[
+            local clock = os.clock
+            for i= 1,5 do
+                local t0 = clock()
+                while clock() - t0 <= 1 do end
+            end
+        ]])
+    writef(
+        'sleep_1.lua',
+        [[
+            local clock = os.clock
+            local t0 = clock()
+            while clock() - t0 <= 1 do end
+        ]])
+    
+        
+    local clock = os.clock
+    function sleep(n)  -- seconds
+        local t0 = clock()
+        while clock() - t0 <= n do end
+    end
+
+    function length(T)
+        local count = 0
+        for _ in pairs(T) do count = count + 1 end
+        return count
+    end
+
+    print("Testing background processes...")
+    local num_jobs = length(jobs())
+    local num_running = length(jobs("running"))
+    local num_finished = length(jobs("finished"))
+
+    run.bg{luacmd, 'sleep_15.lua'}
+    local proc = run.bg{luacmd, 'sleep_15.lua'}
+    run.bg{luacmd, 'sleep_5.lua'}
+
+    assert(length(jobs()) == num_jobs+3, 'Jobs shows all processes')
+    assert(length(jobs("running")) == num_running+3, 'Filtering running jobs')
+    assert(length(jobs("finished")) == num_finished, 'Filtering finished jobs')
+    sleep(6)
+    assert(length(jobs("running")) == num_running+2)
+    assert(length(jobs("finished")) == num_finished+1)
+    assert(length(jobs("finished")) == num_finished+1,
+        "Check that finished procs stay in list after being checked")
+    print("Waiting for background process...")
+    proc:wait()
+    sleep(1)
+    assert(proc:status() == "finished")
+    assert(proc:exit_code() == 0, "naturally finished process has invalid exit code")
+    assert(length(jobs("running")) == num_running,
+        'Filtering running jobs after all procs end v1')
+    assert(length(jobs("finished")) == num_finished+3,
+        'Filtering finished jobs after all procs end v1')
+
+    print("Testing process termination...")
+    proc = run.bg{luacmd, 'sleep_15.lua'}
+    proc:kill()
+    sleep(1) -- Wait for proc to terminate
+    assert(proc:status() == "failed")
+    assert(not proc:exit_code(), "finished process does not have exit code of nil")
+
+    proc = run.bg{luacmd, 'sleep_15.lua'}
+    proc:terminate()
+    proc:status()
+    sleep(1) -- Wait for proc to terminate
+    assert(proc:status() == "failed")
+    assert(not proc:exit_code(), "killed process does not have exit code of nil")
+
+    --local cur_jobs = length(jobs("running"))
+    --assert(not run.bg{'llua sleep_15.lua'}, 'False start succeeds')
+    --assert(length(jobs("running")) == cur_jobs, 'False starts add to "running" processes')
+
+    --Test for suspension
+    print("Testing process suspension...")
+    proc = run.bg{luacmd, 'sleep_5.lua'}
+    sleep(1)
+    proc:suspend()
+    sleep(1)
+    assert(proc:status() == "suspended", "Process not suspended")
+
+    run{luacmd, 'sleep_5.lua'} -- Wait for proc to potentially fail
+    assert(proc:status() == "suspended", "Process suspension does not suspend process")
+
+    --Test continuing process
+    proc:resume()
+    sleep(1)
+    assert(proc:status() == "running", "Process not continued")
+
+    run{luacmd, 'sleep_5.lua'} -- Wait for proc to end
+    assert(proc:status() == "finished", "Continued process never ends")
+    
+    --Test for referencing
+    print("Testing process referencing...")
+    proc = run.bg{luacmd, 'sleep_1.lua'}
+    assert(jobs[proc.pid]:status() == "running", "Referring process through jobs[pid] doesn't work")
+    run{luacmd, 'sleep_5.lua'} -- Wait for proc to end
+    assert(jobs[proc.pid]:status() == "finished", "Referring process through jobs[pid] doesn't work")
+end)
+
+del('backgroundmanagementtests')

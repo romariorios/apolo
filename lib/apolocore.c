@@ -1,4 +1,5 @@
 /* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+   Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -89,6 +90,99 @@ static int apolocore_exists(lua_State *L)
 
     lua_pushboolean(L, native_exists(lua_tostring(L, 1)));
     return 1;
+}
+
+static int apolocore_job_status(lua_State *L)
+{
+    check_argc(2);
+    check_arg_type(1, LUA_TNUMBER);
+    check_arg_type(2, LUA_TBOOLEAN);
+
+    struct native_job_result res = native_job_status(lua_tonumber(L, 1), lua_toboolean(L, 2));
+
+    switch (res.tag) {
+        case NATIVE_ERR_NOTFOUND: 
+            lua_pushnil(L);
+            lua_pushstring(L, "Process not found");
+            return 2;
+        case NATIVE_ERR_BACKGROUND_UNCHANGED:
+            lua_pushnil(L);
+            return 1;
+        case NATIVE_ERR_BACKGROUND_FINISHED:
+            lua_pushstring(L, "finished");
+            lua_pushnumber(L, res.exit_code);
+            return 2;
+        case NATIVE_ERR_BACKGROUND_SUSPENDED:
+            lua_pushstring(L, "suspended");
+            return 1;
+        case NATIVE_ERR_BACKGROUND_RESUMED:
+            lua_pushstring(L, "running");
+            return 1;
+        case NATIVE_ERR_BACKGROUND_FAILED:
+            lua_pushstring(L, "failed");
+            // Failed processes don't have exit codes
+            return 1;
+        default:
+            lua_pushnil(L);
+            lua_pushstring(L, "Unknown error (most likely a bug in apolo)");
+            return 2;
+    }
+}
+
+static int apolocore_job_kill(lua_State *L)
+{
+    check_argc(2);
+    check_arg_type(1, LUA_TNUMBER);
+    check_arg_type(2, LUA_TBOOLEAN);
+    
+    struct native_job_result res = native_job_kill(lua_tonumber(L, 1), lua_toboolean(L, 2));
+
+    switch (res.tag) {
+    case NATIVE_ERR_NOTFOUND: 
+        lua_pushnil(L);
+        lua_pushstring(L, "Process not found");
+        return 2;
+    case NATIVE_ERR_PERMISSION: 
+        lua_pushnil(L);
+        lua_pushstring(L, "Process doesn't have the permission to kill that process. Make sure process was started by this program");
+        return 2;
+    case NATIVE_ERR_SUCCESS:
+        lua_pushboolean(L, 1);
+        return 1;
+    default:
+        lua_pushnil(L);
+        lua_pushstring(L, "Unknown error (most likely a bug in apolo)");
+
+        return 2;
+    }
+}
+
+static int apolocore_job_active(lua_State *L)
+{
+    check_argc(2);
+    check_arg_type(1, LUA_TNUMBER);
+    check_arg_type(2, LUA_TBOOLEAN);
+    
+    struct native_job_result res = native_job_set_active(lua_tonumber(L, 1), lua_toboolean(L, 2));
+
+    switch (res.tag) {
+        case NATIVE_ERR_NOTFOUND: 
+            lua_pushnil(L);
+            lua_pushstring(L, "Process not found");
+            return 2;
+        case NATIVE_ERR_PERMISSION:
+            lua_pushnil(L);
+            lua_pushstring(L, "Process doesn't have the permission to change that process. Make sure process was started by this program");
+            return 2;
+        case NATIVE_ERR_SUCCESS:
+            lua_pushboolean(L, 1);
+            return 1;
+        default:
+            lua_pushnil(L);
+            lua_pushstring(L, "Unknown error (most likely a bug in apolo)");
+
+            return 2;
+    }
 }
 
 // To be called inside of native_fillentryarray
@@ -251,15 +345,15 @@ static int apolocore_execute(lua_State *L)
             err_target = NULL;
 
         struct native_run_result proc = native_setup_proc_out(opts, target, err_target);
-        if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
+        if (proc.tag == NATIVE_ERR_IN_EXECUTE) {
             for (int pipe=len-1; pipe >= 0; pipe--) {
-                if (proc.tag != NATIVE_ERR_PROCESS_RUNNING) {
+                if (proc.tag != NATIVE_ERR_IN_EXECUTE) {
                     break;
                 }
                 proc = native_execute(executable[pipe], exeargs[pipe], envstrings,
                     opts, proc, pipe, source);
             }
-            if (proc.tag == NATIVE_ERR_PROCESS_RUNNING) {
+            if (proc.tag == NATIVE_ERR_IN_EXECUTE) {
                 proc = native_execute_begin(proc, opts);
             }
         }
@@ -270,7 +364,7 @@ static int apolocore_execute(lua_State *L)
             lua_pushstring(L, "Failed to fork");
 
             return 2;
-        case NATIVE_ERR_NOTFOUND:
+        case NATIVE_ERR_NOTFOUND: 
             lua_pushnil(L);
             lua_pushstring(L, "Command not found");
 
@@ -306,8 +400,8 @@ static int apolocore_execute(lua_State *L)
 
             return 2;
         case NATIVE_ERR_BACKGROUND_SUCCESS:
-            lua_pushboolean(L, 1);
-
+            lua_pushnumber(L, proc.pid);
+            
             return 1;
         case NATIVE_ERR_SUCCESS:
             if (opts & EXEC_OPTS_EVAL) {
@@ -335,6 +429,9 @@ static const struct luaL_Reg apolocore[] = {
     {"copy", apolocore_copy},
     {"curdir", apolocore_curdir},
     {"exists", apolocore_exists},
+    {"job_status", apolocore_job_status},
+    {"job_kill", apolocore_job_kill},
+    {"job_active", apolocore_job_active},
     {"listdirentries", apolocore_listdirentries},
     {"mkdir", apolocore_mkdir},
     {"move", apolocore_move},

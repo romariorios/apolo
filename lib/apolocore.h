@@ -1,4 +1,5 @@
 /* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+   Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -46,8 +47,14 @@ enum native_err {
     NATIVE_ERR_VARIABLE_SIZE,
 
     NATIVE_ERR_BACKGROUND_SUCCESS,
-    NATIVE_ERR_PROCESS_RUNNING,
-    NATIVE_ERR_SUCCESS
+    NATIVE_ERR_IN_EXECUTE,
+    NATIVE_ERR_SUCCESS,
+    
+    NATIVE_ERR_BACKGROUND_UNCHANGED,
+    NATIVE_ERR_BACKGROUND_FINISHED,
+    NATIVE_ERR_BACKGROUND_SUSPENDED,
+    NATIVE_ERR_BACKGROUND_RESUMED,
+    NATIVE_ERR_BACKGROUND_FAILED
 };
 
 enum exec_opts_t {
@@ -68,6 +75,9 @@ int native_chdir(const char *dir);
 int native_copy(const char *orig, const char *dest);
 void native_curdir(char *dir);
 int native_exists(const char *path);
+struct native_job_result native_job_status(const int pid, int is_wait);
+struct native_job_result native_job_kill(const int pid, int is_kill);
+struct native_job_result native_job_set_active(const int pid, int is_suspend);
 int native_fillentryarray(lua_State *L, const char *dir);
 int native_mkdir(const char *dir);
 int native_move(const char *orig, const char *dest);
@@ -76,10 +86,17 @@ int native_rmdir(const char *dir);
 struct native_run_result
 {
     enum native_err tag;
-    int exit_code;
+    long unsigned exit_code;
     char out_string[EVAL_BUFFER_SIZE];
+    int pid;
     
     struct native_pipe_info pipe_info;
+};
+
+struct native_job_result
+{
+    enum native_err tag;
+    long unsigned int exit_code;
 };
 
 struct native_run_result native_setup_proc_out(enum exec_opts_t opts,
