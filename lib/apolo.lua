@@ -430,7 +430,7 @@ apolo.mkdir = apolo.core.mkdir
 
 local function merge_lists(...)
     local result = {}
-    for _, l in ipairs{...} do
+    for _, l in pairs{...} do
         if l then
             for _, e in ipairs(l) do
                 table.insert(result, e)
