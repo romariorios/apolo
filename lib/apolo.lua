@@ -38,6 +38,25 @@ if apolo.core.osname == 'linux' then
     end
 end
 
+local path_sep
+if apolo.core.osname == 'win' then
+    path_sep = '\\'
+else
+    path_sep = '/'
+end
+
+function apolo.abspath(path)
+    if path:sub(1, 1) == path_sep then
+        return path
+    end
+
+    if apolo.core.osname == 'win' and path:sub(2, 3) == ':\\' then
+        return path
+    end
+
+    return apolo.current() .. path_sep .. path
+end
+
 function apolo:as_global()
     -- Declare everything in _ENV
     for k, v in pairs(self) do
@@ -275,6 +294,19 @@ function apolo_jobs_mt.__call(apolo_jobs, status_filter)
 end
 
 setmetatable(apolo.jobs, apolo_jobs_mt)
+
+function apolo.path(...)
+    local res = ''
+    local items = {...}
+    for i, item in ipairs(items) do
+        res = res .. item
+        if i ~= #items then -- do not append path_sep if last item
+            res = res .. path_sep
+        end
+    end
+
+    return res
+end
 
 local apolo_proc_mt = {}
 function apolo_proc_mt.kill(self)

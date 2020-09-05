@@ -1,14 +1,6 @@
 require 'apolo':as_global()
 
-local ps = nil
-
-if core.osname == 'linux' then
-    ps = '/'
-elseif core.osname == 'win' then
-    ps = '\\'
-end
-
-chdir('..' .. ps .. 'tests' .. ps)
+chdir(path('..', 'tests'))
 local testlist = readf('testlist')
 local matches = string.gmatch(testlist, '%S+')
 
