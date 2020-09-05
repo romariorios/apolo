@@ -154,6 +154,11 @@ end
 
 apolo.current = apolo.core.curdir
 
+apolo.currentos = {}
+apolo.currentos.linux = apolo.core.osname == 'linux'
+apolo.currentos.win = apolo.core.osname == 'win'
+apolo.currentos.name = apolo.core.osname
+
 function apolo.del(entry)
     local cur_entry_infos = apolo.entry_infos()[entry]
     if not cur_entry_infos then

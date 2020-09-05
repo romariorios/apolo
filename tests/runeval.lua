@@ -175,7 +175,7 @@ del('envtests')
 
 -- Function to get endline for OS
 function newline()
-    if core.osname == 'win' then
+    if currentos.win then
         return "\r\n"
     else
         return "\n"
