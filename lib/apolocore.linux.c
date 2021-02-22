@@ -20,6 +20,8 @@
    DEALINGS IN THE SOFTWARE.
 */
 
+#define _GNU_SOURCE
+
 #include "apolocore.h"
 
 #include <string.h>
