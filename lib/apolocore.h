@@ -109,4 +109,6 @@ struct native_run_result native_execute(
 struct native_run_result native_execute_begin(struct native_run_result proc,
     enum exec_opts_t opts);
 
+int luaopen_apolocore(lua_State *L);
+
 #endif
