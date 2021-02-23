@@ -1,4 +1,4 @@
-/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019, 2021 Luiz Romário Santana Rios
    Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -490,7 +490,7 @@ struct native_run_result native_execute(
         dup2(res.pipe_info.error_fd, STDERR_FILENO);
 
         //Start process
-        execvpe(executable, exeargs, envstrings);  /* should never return */
+        execvpe(executable, (char* const*) exeargs, (char* const*) envstrings);  /* should never return */
 
         if (!(opts & EXEC_OPTS_BG)) {
             // If execvpe ever returns, an error occurred:

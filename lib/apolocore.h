@@ -1,4 +1,4 @@
-/* Copyright (C) 2017, 2019 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019, 2021 Luiz Romário Santana Rios
    Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
