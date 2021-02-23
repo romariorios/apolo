@@ -24,6 +24,8 @@
 #include <lauxlib.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "apolo_lua.h"
 #include "../lib/apolocore.h"
@@ -45,9 +47,20 @@ static int luaopen_apolo(lua_State *L)
     return 1;
 }
 
+static void create_arg_table(lua_State *L, int argc, char *argv[])
+{
+    lua_createtable(L, argc, 0);
+    for (int i = 0; i < argc; ++i) {
+	lua_pushstring(L, argv[i]);
+	lua_seti(L, -2, i - 1);
+    }
+
+    lua_setglobal(L, "arg");
+}
+
 int main(int argc, char* argv[])
 {
-    if (argc != 2) {
+    if (argc < 2) {
 	printf("Usage: %s <apolo script>\n", argv[0]);
 	return 1;
     }
@@ -56,6 +69,8 @@ int main(int argc, char* argv[])
     luaL_openlibs(L);
     luaL_requiref(L, "apolocore", luaopen_apolocore, 0);
     luaL_requiref(L, "apolo", luaopen_apolo, 0);
+
+    create_arg_table(L, argc, argv);
 
     try_load(file, argv[1]);
 
