@@ -34,8 +34,16 @@
         if (err != LUA_OK) { \
             const char* error_msg = lua_tostring(L, -1); \
             fprintf(stderr, "Failed to load %s: %s\n", __name, error_msg); \
+	    exit(1); \
         } \
     }
+
+static int luaopen_apolo(lua_State *L)
+{
+    try_load(string, apolo_lua);
+
+    return 1;
+}
 
 int main(int argc, char* argv[])
 {
@@ -47,16 +55,7 @@ int main(int argc, char* argv[])
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
     luaL_requiref(L, "apolocore", luaopen_apolocore, 0);
-
-    // apolo = require 'apolo'
-    try_load(string, apolo_lua);
-    lua_setglobal(L, "apolo");
-
-    // apolo:as_global()
-    lua_getglobal(L, "apolo");
-    lua_getfield(L, -1, "as_global");
-    lua_getglobal(L, "apolo");
-    lua_call(L, 1, 0);
+    luaL_requiref(L, "apolo", luaopen_apolo, 0);
 
     try_load(file, argv[1]);
 

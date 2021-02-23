@@ -1,4 +1,4 @@
--- for use with apolo
+require 'apolo':as_global()
 
 for _, e in ipairs(entries()) do
    print(e)
