@@ -1,4 +1,4 @@
-/* Copyright (C) 2017, 2019, 2021 Luiz Romário Santana Rios
+/* Copyright (C) 2017, 2019, 2021, 2022 Luiz Romário Santana Rios
    Copyright (C) 2019 Connor McPherson
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -159,7 +159,7 @@ struct native_job_result native_job_status(const int pid, int is_wait)
 
 static struct native_job_result native_job_signal(const int pid, int signal)
 {
-    int status = kill(pid, signal);
+    int status = killpg(pid, signal);
     if (status < 0) {
         struct native_job_result res = {NATIVE_ERR_INVALID, 0};
         switch (errno) {
@@ -186,6 +186,7 @@ struct native_job_result native_job_kill(const int pid, int is_kill)
     } else {
         signal = SIGTERM;
     }
+
     return native_job_signal(pid, signal);
 }
 
@@ -488,6 +489,11 @@ struct native_run_result native_execute(
         }
 
         dup2(res.pipe_info.error_fd, STDERR_FILENO);
+
+        // setup session so we can kill the entire tree later
+        pid_t session = setsid();
+        setpgid(0, session);
+        res.pid = session;
 
         //Start process
         execvpe(executable, (char* const*) exeargs, (char* const*) envstrings);  /* should never return */
